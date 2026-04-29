@@ -1,8 +1,12 @@
-# LMS-DTO-01: Formal Trait & Manifest Schema
+# LMS-DTO: Formal Trait & Manifest Schema
 
-### Version: 0.1.3
+> **Version:** 0.1.4
+<br> **Author:** Francis Xavier Wazeter IV
+<br> **Date:** 04/29/2026
 
 **Status:** Implementation Reference
+
+---
 
 ## I. Overview
 

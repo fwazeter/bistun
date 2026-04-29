@@ -1,8 +1,12 @@
-# LMS-STRAT-01: The Strategy Pattern Registry
+# LMS-STRAT: The Strategy Pattern Registry
 
-### Version: 0.1.3
+> **Version:** 0.1.4
+<br> **Author:** Francis Xavier Wazeter IV
+<br> **Date:** 04/29/2026
 
 **Status:** Implementation Reference
+
+---
 
 ## I. Overview
 

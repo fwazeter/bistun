@@ -32,18 +32,19 @@ Linguistic DNA". It achieves this by synthesizing three global standards:
 
 ### 2. Implementation Reference Blueprints
 
-* **LMS-CORE-01 (SDK Interface)**: Defines the `LinguisticManager` entry point, security configuration, and telemetry
+* **001-LMS-CORE (SDK Interface)**: Defines the `LinguisticManager` entry point, security configuration, and telemetry
   sinks.
-* **LMS-DATA-01 (Persistence)**: Details the **Repository Pattern**, WORM storage, and versioned snapshots.
-* **LMS-VAL-01 (Validation)**: Establishes the **Linguistic Linter** and consistency matrix for DNA integrity.
-* **LMS-EXT-01 (Extensions)**: Maps BCP 47 Unicode subtags (e.g., `-u-nu-`) to manifest traits.
-* **LMS-INGEST-01 (Ingestion)**: Defines the **Truth Hierarchy** (Manual > CLDR > ISO) for data updates.
-* **LMS-SEC-01 (Security)**: Outlines JWS registry signing, Public Key pinning, and M2M authentication.
-* **LMS-OPS-01 (Operations)**: Specifies SLI/SLO metrics, resolution p99 targets, and resource telemetry.
-* **LMS-DNA-01 (Trait Aggregator)**: Specifies logic for **Positional Priority** and the **High-Water Mark Strategy**.
-* **LMS-STRAT-01 (Strategy Registry)**: Maps linguistic traits to executable software strategies.
-* **LMS-MEM-01 (Memory/Atomic Swap)**: Covers the **Flyweight Pattern** and **Atomic Reference Swap**.
-* **LMS-DTO-01 (Manifest Schema)**: Provides the final JSON/Object schema for the `CapabilityManifest`.
+* **002-LMS-DATA (Persistence)**: Details the **Repository Pattern**, WORM storage, and versioned snapshots.
+* **003-LMS-VAL (Validation)**: Establishes the **Linguistic Linter** and consistency matrix for DNA integrity.
+* **004-LMS-EXT (Extensions)**: Maps BCP 47 Unicode subtags (e.g., `-u-nu-`) to manifest traits.
+* **005-LMS-INGEST (Ingestion)**: Defines the **Truth Hierarchy** (Manual > CLDR > ISO) for data updates.
+* **006-LMS-SEC (Security)**: Outlines JWS registry signing, Public Key pinning, and M2M authentication.
+* **007-LMS-OPS (Operations)**: Specifies SLI/SLO metrics, resolution p99 targets, and resource telemetry.
+* **008-LMS-DNA (Trait Aggregator)**: Specifies logic for **Positional Priority** and the **High-Water Mark Strategy**.
+* **009-LMS-STRAT (Strategy Registry)**: Maps linguistic traits to executable software strategies.
+* **010-LMS-MEM (Memory/Atomic Swap)**: Covers the **Flyweight Pattern** and **Atomic Reference Swap**.
+* **011-LMS-DTO (Manifest Schema)**: Provides the final JSON/Object schema for the `CapabilityManifest`.
+* **012-LMS-ENG (TODO ADD)** ADD Description
 
 ---
 

@@ -1,8 +1,12 @@
-# LMS-MEM-01: Flyweight & Atomic Swap Management
+# LMS-MEM: Flyweight & Atomic Swap Management
 
-### Version: 0.1.3
+> **Version:** 0.1.4
+<br> **Author:** Francis Xavier Wazeter IV
+<br> **Date:** 04/29/2026
 
-**Status**: Implementation Reference
+**Status:** Implementation Reference
+
+---
 
 ## I. Overview
 
