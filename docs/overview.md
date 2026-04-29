@@ -1,97 +1,62 @@
 # Specification Overview
 
-### Version: 0.1.3
+> **Version:** 0.1.4
+<br> **Author:** Francis Xavier Wazeter IV
+<br> **Date:** 04/29/2026
 
-## LMS-CORE-01: The Core SDK Interface Specification
+## 001-LMS-CORE: The Core SDK Interface Specification
+The "front door" of the LMS for any application. It manages the lifecycle of linguistic data and orchestrates the resolution pipeline.
 
-This is the "front door" of the LMS for any application. It handles the lifecycle of the linguistic data, from the
-initial sync to the final manifest request.
-
-### Primary Class: `LinguisticManager`
-
-* **Method `Initialize(Config options)`**: Sets up the local cache and establishes connection parameters for the sidecar
-  service.
-* **Method `Sync()`**: Triggers the `GET /v1/registry/sync` call to fetch the Flyweight definitions.
-* **Method `GetManifest(String localeTag)`**: The main entry point. Orchestrates the resolver chain and aggregator
-  logic.
+* **Primary Class**: `LinguisticManager`.
+* **SDK State Machine**: Transitions through **BOOTSTRAPPING**, **READY**, and **DEGRADED** states to ensure thread-safe operation.
+* **Method `Initialize(Config options)`**: Sets up connection parameters and triggers initial sync with a **Circuit Breaker** for sync failures.
+* **Method `GetManifest(String localeTag)`**: The main entry point. Executes the **5-Phase Pipeline** (Resolve -> Aggregate -> Override -> Integrity Check -> Telemetry).
 
 ---
 
-## LMS-ENG-01: Logical Engine & Resolver Hierarchy
+## 012-LMS-ENG: Logical Engine & Resolver Hierarchy
+Implements the **Chain of Responsibility** to map BCP 47 tags to the most relevant registry entry.
 
-This implements the **Chain of Responsibility** to ensure we never hit a dead end when looking for a locale.
-
-### Interface: `IResolver`
-
-* **Method `Resolve(String tag, Registry cache)`**: Returns a `LocaleEntry` or passes to the next resolver.
-
-### Concrete Resolvers:
-
-* **`ExactMatchResolver`**: Performs a direct O(1) lookup in the registry.
-* **`TruncationResolver`**: Implements RFC 4647 logic to strip subtags until a match is found.
-* **`AliasResolver`**: Checks a lookup table for legacy tags (e.g., `zh-TW` → `zh-Hant`).
-* **`DefaultResolver`**: The safety net that returns the hardcoded system default (e.g., `en-US`).
+* **Interface**: `IResolver`.
+* **Concrete Resolvers**: Includes `ExactMatchResolver`, `TruncationResolver` (RFC 4647), `ScriptAliasResolver`, and `DefaultFallbackResolver`.
 
 ---
 
-## LMS-DNA-01: Trait Aggregator & High-Water Mark Logic
+## 008-LMS-DNA: Trait Aggregator & High-Water Mark Logic
+The computational core that merges language "Genetics" with script "Physics" into a single manifest.
 
-This class is the "brain" of the operation. It takes the resolved locale and its associated scripts and distills them
-into a single manifest.
-
-### Class: `TraitAggregator`
-
-* **Function `Aggregate(Language lang, List<Script> scripts)`**: The orchestration function.
-* **Logic: `PositionalPriority`**: Specifically pulls `PRIMARY_DIRECTION` from `scripts[0]`.
-* **Logic: `CumulativeUnion`**: Sets `HAS_BIDI_ELEMENTS` and `REQUIRES_SHAPING` to true if *any* script in the list has
-  those properties.
-* **Logic: `HighWaterMark`**: Compares `Segmentation` types and returns the one with the highest computational
-  complexity (e.g., `DICTIONARY` > `SPACE`).
+* **Logic: `PositionalPriority`**: Selects `PRIMARY_DIRECTION` from the first script in the manifest.
+* **Logic: `CumulativeUnion`**: Aggregates rendering flags like `HAS_BIDI_ELEMENTS` and `REQUIRES_SHAPING` using Boolean OR logic.
+* **Logic: `High-Water Mark Strategy`**: Selects the most complex `SEGMENTATION_STRATEGY` required by any script in a multi-script locale.
 
 ---
 
-## LMS-STRAT-01: The Strategy Pattern Registry
+## 009-LMS-STRAT: The Strategy Pattern Registry
+Decouples linguistic metadata from algorithmic execution, allowing interchangeable logic for different language types.
 
-This allows the SDK to choose the right algorithm for things like stemming or normalization without having to know the
-language specifically.
-
-### Interface: `ILinguisticStrategy`
-
-* **Method `Execute(String input)`**: Performs the specific linguistic operation.
-
-### Registry Mapping:
-
-* **`StemmingProvider`**: Maps `Morphology_Type` (e.g., `TEMPLATIC`) to a strategy class (e.g.,
-  `RootExtractionStrategy`).
-* **`SegmentationProvider`**: Maps `SEGMENTATION_STRATEGY` to the correct boundary detection logic.
+* **Interface**: `ILinguisticStrategy`.
+* **Providers**: `StemmingProvider` and `SegmentationProvider` act as factories to return the correct strategy based on manifest traits.
 
 ---
 
-## LMS-MEM-01: Flyweight & Atomic Swap Management
+## 010-LMS-MEM: Flyweight & Atomic Swap Management
+Handles memory efficiency and zero-downtime updates in high-traffic environments.
 
-To keep the SDK light and fast (performance target: < 1ms), we handle memory with extreme care.
-
-### Class: `RegistryStore`
-
-* **The Flyweight Factory**: Stores unique instances of `Language_Definition` and `Script_Definition`.
-* **Memory Optimization**: Reuses these shared objects across 7,000+ potential locales to reduce memory footprint by
-  80%.
-* **Atomic Reference Swap**: When a new registry version is synced, the SDK swaps the pointer to the `RegistryStore`
-  atomically to ensure thread safety without locking.
+* **Pattern: `Flyweight`**: Reuses immutable instances of language and script definitions to reduce memory footprint by $>80\%$.
+* **Mechanism: `Atomic Reference Swap`**: Updates the `RegistryStore` in-memory without blocking active requests.
 
 ---
 
-## LMS-DTO-01: Formal Trait & Manifest Schema
+## 003-LMS-VAL: Linguistic Validation Rules (The Linter)
+Ensures DNA integrity through a tiered validation lifecycle.
 
-This defines the structure of the data traveling from the SDK to the calling application.
+* **Tiered Enforcement**: Strict **DNA Validation** at ingestion vs. lightweight **Runtime Integrity Checks** to maintain the $<1\text{ms}$ performance budget.
+* **Consistency Matrix**: Enforces logical compatibility between `Morphology_Type` and stemming strategies.
 
-### Class: `CapabilityManifest`
+---
 
-* **Field `ResolvedLocale`**: String (BCP 47).
-* **Field `Traits`**: A typed `Map<TraitKey, Object>`.
-* **Field `Metadata`**: Contains `RegistryVersion` and `ResolutionTime` for observability.
+## 011-LMS-DTO: Formal Trait & Manifest Schema
+Defines the structure of the immutable `CapabilityManifest` traveling from the SDK to the application.
 
-### Enum: `TraitKey`
-
-* Includes `PRIMARY_DIRECTION`, `HAS_BIDI_ELEMENTS`, `REQUIRES_SHAPING`, `SEGMENTATION_STRATEGY`, `MORPHOLOGY_TYPE`, and
-  `UNICODE_PRELOAD_BLOCKS`.
+* **Field `traits`**: A typed `Map<TraitKey, Object>` containing the "Golden Set" of capabilities (e.g., `PRIMARY_DIRECTION`, `MORPHOLOGY_TYPE`).
+* **Field `metadata`**: Contains `registry_version` and `resolution_time_ms` for production observability.
