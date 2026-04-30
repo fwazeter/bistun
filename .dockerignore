@@ -1,0 +1,9 @@
+target/
+.git/
+.github/
+.githooks/
+.idea/
+.vscode/
+docs/
+**/*.rs.bk
+rustc-ice-*.txt

@@ -16,6 +16,8 @@ This project follows a "Separation of Writing Systems" philosophy. We decouple t
 ```text
 bistun/
 ├── Cargo.toml           # Project manifest and dependencies
+├── Dockerfile           # Multi-stage production build
+├── .dockerignore        # Build context exclusion rules
 ├── LICENSE              # GNU GPL v3
 ├── README.md            # Value proposition and quick-start
 ├── PROJECT_MAP.md       # Blueprint-to-file mapping table
@@ -24,6 +26,7 @@ bistun/
 ├── scripts/             # Phase 8: ISO/CLDR data ingestion scrapers
 ├── tests/               # Phase 9: "Golden Set" integration testing
 └── src/                 # Rust Source Tree
+    ├── main.rs           # The service entry point (Executable)
     ├── lib.rs           # The public API entry point
     ├── manager.rs       # [001-LMS-CORE] SDK state and orchestration
     ├── core/            # The capability engine's algorithmic heart

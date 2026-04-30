@@ -52,6 +52,13 @@ To run the scientific performance benchmarks:
 just bench-critical
 ```
 
+### Docker Deployment
+To build and run the LMS as a sidecar service:
+```bash
+just docker-build
+just docker-run
+```
+
 ---
 
 ## 📚 Documentation Map

@@ -52,3 +52,12 @@ install-hooks:
 # Clean build artifacts
 clean:
     cargo clean
+
+# Build the production Docker image
+docker-build:
+    docker build -t bistun-lms:latest .
+
+# Run the project within a local Docker container with an optional port override
+# Usage: just docker-run (defaults to 8080) OR just docker-run 8081
+docker-run port="8080":
+    docker run -p {{port}}:8080 bistun-lms:latest
