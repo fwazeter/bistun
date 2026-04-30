@@ -23,6 +23,12 @@ bistun/
 ├── PROJECT_MAP.md       # Blueprint-to-file mapping table
 ├── PROJECT_STRUCTURE.md # This document: Architectural rationale
 ├── docs/                # Multi-layered documentation suite
+│   └── standards/
+│       ├── LMS-AI.md       # AI alignment standards
+│       ├── LMS-DOC.md      # Narrative documentation standards
+        ├── LMS-GLOSSARY.md # Linguistic & Engineering glossary
+│       ├── LMS-STACK.md    # Tech stack & dependency repository
+│       └── LMS-TEST.md     # Testing-first standards
 ├── scripts/             # Phase 8: ISO/CLDR data ingestion scrapers
 ├── tests/               # Phase 9: "Golden Set" integration testing
 └── src/                 # Rust Source Tree
@@ -76,7 +82,7 @@ The documentation is split into five layers to serve different stakeholders (and
 
 1.  **Foundations (`docs/foundations/`)**: The "Executive" layer. Explains the "Global Truth" vision, implementation phases, and core algorithms. Summarized in `00-system-overview.md`.
 2.  **Blueprints (`docs/blueprints/`)**: The "Implementation" layer. Highly technical, standard-linked specifications (001-012) used as "Ground Truth" during coding.
-3.  **Standards (`docs/standards/`)**: The "Engineering" layer. Defines the quality of the codebase, including **LMS-DOC** narrative standards and **LMS-AI** alignment.
+3.  **Standards (`docs/standards/`)**: The "Engineering" layer. Defines codebase quality, including LMS-DOC narrative standards, LMS-AI alignment, the technical LMS-STACK repository, and the architectural LMS-GLOSSARY.
 4.  **Interfaces (`docs/interfaces/`)**: The "Admin" layer. Specs for external UI tools like the **Curator UI**.
 5.  **Processes (`docs/processes/`)**: The "Operational" layer. Detailed guides for the mechanics of CI gates, performance benchmarking, error handling, and release promotion.
 

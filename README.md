@@ -67,7 +67,7 @@ The project features a multi-layered documentation suite in the `docs/` director
 
 1.  **Foundations**: High-level vision and algorithms (`docs/foundations/`).
 2.  **Blueprints**: Detailed implementation specifications (`docs/blueprints/`).
-3.  **Standards**: Engineering rules for code and AI agents (`docs/standards/`).
+3.  **Standards**: Engineering rules for code, AI agents, technical dependencies and project **Glossary** (`docs/standards/`).
 4.  **Interfaces**: Specifications for administrative tools (`docs/interfaces/`).
 5.  **Processes**: Operational guides for CI, releases, and errors (`docs/processes/`).
 
