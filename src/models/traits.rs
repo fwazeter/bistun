@@ -42,6 +42,8 @@ pub enum TraitKey {
     SegmentationStrategy,
     MorphologyType,
     UnicodePreloadBlocks,
+    NumberingSystem,
+    Calendar,
 }
 
 /// The UI rendering direction derived from Orthographic mechanics.

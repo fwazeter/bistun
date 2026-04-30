@@ -31,6 +31,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocaleEntry {
     pub id: String,
+    pub resolution_path: Vec<String>,
 }
 
 /// Standardized error variants for the LMS capability engine.
@@ -39,17 +40,21 @@ pub enum LmsError {
     InvalidTag,
     ResolutionFailed(String),
     IntegrityViolation(String),
+    SecurityFault(String),
 }
 
 impl fmt::Display for LmsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             LmsError::InvalidTag => write!(f, "The provided BCP 47 tag is invalid or empty"),
-            LmsError::ResolutionFailed(tag) => {
-                write!(f, "Failed to resolve locale for tag: {}", tag)
+            LmsError::ResolutionFailed(msg) => {
+                write!(f, "Failed to resolve locale for tag: {}", msg)
             }
             LmsError::IntegrityViolation(msg) => {
                 write!(f, "Integrity violation: {}", msg)
+            }
+            LmsError::SecurityFault(msg) => {
+                write!(f, "Registry security fault: {}", msg)
             }
         }
     }
@@ -75,12 +80,14 @@ pub fn resolve(tag: &str, state: &RegistryState) -> Result<LocaleEntry, LmsError
     }
 
     let mut current_tag = trimmed;
+    let mut resolution_path = Vec::new();
 
     // 2 & 3. Exact Match and Truncation Loop
     loop {
+        resolution_path.push(current_tag.to_string());
         // [DYNAMIC LOOKUP]: Check the memory pool
         if state.get_profile(current_tag).is_some() {
-            return Ok(LocaleEntry { id: current_tag.to_string() });
+            return Ok(LocaleEntry { id: current_tag.to_string(), resolution_path });
         }
 
         // Truncate the right-most subtag using high-performance slice manipulation
@@ -95,9 +102,9 @@ pub fn resolve(tag: &str, state: &RegistryState) -> Result<LocaleEntry, LmsError
     }
 
     // 4. Default Fallback Resolver [Ref: 012-LMS-ENG]
-    // If truncation exhausts and we still have nothing, we ensure the system does not crash
+    // If truncation exhausts, and we still have nothing, we ensure the system does not crash
     // by returning the system default.
-    Ok(LocaleEntry { id: "en-US".to_string() })
+    Ok(LocaleEntry { id: "en-US".to_string(), resolution_path })
 }
 
 #[cfg(test)]

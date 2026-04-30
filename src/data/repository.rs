@@ -27,15 +27,17 @@
 use crate::core::resolver::bcp47::LmsError;
 use crate::data::store::{LocaleProfile, RegistryStore};
 use crate::models::traits::{Direction, MorphType, SegType};
+use crate::security::verifier;
 
 /// Hydrates a fresh `RegistryStore` from static sources.
 ///
 /// Time: O(M) where M is the number of locales | Space: O(M) for the new map allocation
 ///
 /// # Logic Trace (Internal)
-/// 1. Instantiates a completely isolated, fresh `RegistryStore`.
-/// 2. [\STUB\]: Simulates reading from a JSON WORM file on disk by populating known golden sets.
-/// 3. Returns the hydrated store to be hot-swapped into the active state.
+/// 1. **Security Gate**: Read the raw disk payload and verify its cryptographic signature.
+/// 2. **Instantiation**: Create a completely isolated, fresh `RegistryStore`.
+/// 3. **Hydration**: [\STUB\] Inflate the known golden sets into the memory pool.
+/// 4. **Return**: Yield the hydrated store to be hot-swapped into the active state.
 ///
 /// # Examples
 /// ```rust
@@ -45,11 +47,19 @@ use crate::models::traits::{Direction, MorphType, SegType};
 /// assert!(fresh_store.get_profile("th-TH").is_some());
 /// ```
 pub fn hydrate_snapshot() -> Result<RegistryStore, LmsError> {
+    // 1. Security Gate [Ref: 006-LMS-SEC]
+    // In Phase 8, this will be `fs::read_to_string` for both the JSON and the `.sig` file.
+    let simulated_payload = "{ ... }";
+    let simulated_signature = "valid-lms-signature";
+
+    verifier::verify_snapshot(simulated_payload, simulated_signature)?;
+
+    // 2. Instantiation
     let mut store = RegistryStore::new();
 
     // [STUB]: Phase 8 will replace this with `serde_json::from_reader(File::open("snapshot.json"))`
 
-    // 1. English (System Default Fallback per [012-LMS-ENG])
+    // 3. Hydration STUB English (System Default Fallback per [012-LMS-ENG])
     store.insert_stub(LocaleProfile {
         id: "en-US".to_string(),
         morph: MorphType::FUSIONAL,
@@ -60,7 +70,7 @@ pub fn hydrate_snapshot() -> Result<RegistryStore, LmsError> {
         requires_shaping: false,
     });
 
-    // 2. Arabic
+    // Arabic
     store.insert_stub(LocaleProfile {
         id: "ar-EG".to_string(),
         morph: MorphType::TEMPLATIC,
@@ -71,7 +81,7 @@ pub fn hydrate_snapshot() -> Result<RegistryStore, LmsError> {
         requires_shaping: true,
     });
 
-    // 3. Thai
+    // Thai
     store.insert_stub(LocaleProfile {
         id: "th-TH".to_string(),
         morph: MorphType::ISOLATING,
@@ -82,7 +92,7 @@ pub fn hydrate_snapshot() -> Result<RegistryStore, LmsError> {
         requires_shaping: true,
     });
 
-    // 4. Traditional Chinese
+    // Traditional Chinese
     store.insert_stub(LocaleProfile {
         id: "zh-Hant".to_string(),
         morph: MorphType::ISOLATING,
@@ -93,6 +103,7 @@ pub fn hydrate_snapshot() -> Result<RegistryStore, LmsError> {
         requires_shaping: false,
     });
 
+    // 4. Return
     Ok(store)
 }
 

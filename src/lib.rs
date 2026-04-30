@@ -25,6 +25,8 @@ pub mod core;
 pub mod data;
 pub mod manager;
 pub mod models;
+pub mod ops;
+pub mod security;
 pub mod validation;
 
 // Public re-exports for ergonomic SDK consumption
