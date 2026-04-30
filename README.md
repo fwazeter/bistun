@@ -22,7 +22,7 @@ The LMS acts as the **System of Record** for linguistic data, transforming compl
 
 ### 1. Architectural Foundations
 
-* **The Master Plan (01_development_plan_0.1.4.md)**: Outlines the executive vision, the multi-standard hierarchy, and the 11-phase implementation roadmap.
+* **The Master Plan (01_development_plan_0.1.4.md)**: Outlines the executive vision, the multistandard hierarchy, and the 11-phase implementation roadmap.
 * **Technical Specification (02_technical_specifications_0.1.4.md)**: Formalizes the API contract, the Map-based DTO container, and the 5-phase resolution pipeline.
 * **Algorithm Whitepaper (03_fallback_aggregation_algorithm_whitepaper.0.1.4.md)**: Explains the internal logic of the Capability Engine, including tiered validation and atomic overrides.
 

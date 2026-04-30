@@ -53,14 +53,14 @@ The `LinguisticManager` acts as a singleton within the consuming application's l
 
 The SDK requires specific parameters to maintain security and meet performance targets.
 
-| Parameter | Type | Default | Purpose |
-| :--- | :--- | :--- | :--- |
-| `SidecarEndpoint` | String | `http://localhost:8080` | Location of the LMS Sidecar service. |
-| `SecurityConfig` | Object | (Empty) | Contains JWT/M2M credentials and the LMS Public Key for bundle verification. |
-| `TelemetryConfig` | Object | (Enabled) | Defines sinks for SLI metrics (Prometheus/Grafana) and tracing headers. |
-| `SyncRetryPolicy` | Object | {max: 3} | Defines backoff strategy for failed synchronization attempts. |
-| `EnableAutoSync` | Boolean | `true` | Enables the Pub/Sub observer for registry updates. |
-| `PerformanceBudget` | Duration | `1ms` | Hard limit for resolution; triggers "Performance Alert" SLI if exceeded. |
+| Parameter           | Type     | Default                 | Purpose                                                                      |
+|:--------------------|:---------|:------------------------|:-----------------------------------------------------------------------------|
+| `SidecarEndpoint`   | String   | `http://localhost:8080` | Location of the LMS Sidecar service.                                         |
+| `SecurityConfig`    | Object   | (Empty)                 | Contains JWT/M2M credentials and the LMS Public Key for bundle verification. |
+| `TelemetryConfig`   | Object   | (Enabled)               | Defines sinks for SLI metrics (Prometheus/Grafana) and tracing headers.      |
+| `SyncRetryPolicy`   | Object   | {max: 3}                | Defines backoff strategy for failed synchronization attempts.                |
+| `EnableAutoSync`    | Boolean  | `true`                  | Enables the Pub/Sub observer for registry updates.                           |
+| `PerformanceBudget` | Duration | `1ms`                   | Hard limit for resolution; triggers "Performance Alert" SLI if exceeded.     |
 
 ---
 

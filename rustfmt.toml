@@ -1,0 +1,18 @@
+# Bistun LMS Formatting Standard
+# Ref: [LMS-DOC]
+
+# Maintain a balance between narrative density and readability
+max_width = 100
+use_small_heuristics = "Max"
+
+# Group imports to maintain a clear "Shared Vocabulary" structure
+group_imports = "StdExternalCrate"
+reorder_imports = true
+
+# Formatting for Narrative Comments
+wrap_comments = true
+comment_width = 80
+
+# Style consistency for enums and structs
+enum_discrim_align_threshold = 20
+struct_field_align_threshold = 20

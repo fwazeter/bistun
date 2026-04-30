@@ -1,0 +1,12 @@
+{
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.check.extraArgs": ["--", "-D", "warnings"],
+  "editor.formatOnSave": true,
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+  },
+  "editor.semanticHighlighting.enabled": true,
+  "rust-analyzer.lens.references.enabled": true,
+  "rust-analyzer.hover.actions.references.enable": true,
+  "mermaid-editor.preview.backgroundColor": "#ffffff"
+}

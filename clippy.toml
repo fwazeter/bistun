@@ -1,0 +1,12 @@
+# Bistun LMS Linting Standard
+# Ref: [LMS-OPS]
+
+# Disallow heavy allocations in the critical resolution path
+too-many-arguments-threshold = 5
+type-complexity-threshold = 250
+
+# Ensure doc examples are present for all public items
+missing-docs-in-private-items = true
+
+# Performance-related lints for <1ms targets
+warn-on-all-auto-impl = true

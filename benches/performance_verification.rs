@@ -10,7 +10,8 @@
 //! * **Warm Cache**: A state where the Flyweight pools are already hydrated
 //!   in memory, representing standard production flow.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
 // Note: These imports will be available once Chunk 1 & 5 are implemented
 // use bistun::manager::{LinguisticManager, Config};
 
