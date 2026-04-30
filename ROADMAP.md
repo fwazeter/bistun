@@ -36,19 +36,19 @@ This document outlines the tactical execution strategy for the Bistun Linguistic
 ### v0.2.0: The Performance Engine
 *Objective: Achieve 80% memory reduction and sub-millisecond resolution via Flyweight patterns.*
 
-- [ ] **Flyweight Pools**: Implement immutable instance pools in `src/data/store.rs`.
-- [ ] **Truncation Logic**: Implement the RFC 4647 `TruncationResolver`.
-- [ ] **Atomic Swap**: Implement background shadow-registry hydration and atomic pointer swaps.
-- [ ] **Benchmarks**: Add performance unit tests to verify the $< 1\text{ms}$ budget.
+- [X] **Flyweight Pools**: Implement immutable instance pools in `src/data/store.rs`.
+- [X] **Truncation Logic**: Implement the RFC 4647 `TruncationResolver`.
+- [X] **Atomic Swap**: Implement background shadow-registry hydration and atomic pointer swaps.
+- [X] **Benchmarks**: Add performance unit tests to verify the $< 1\text{ms}$ budget.
 
 ### v0.5.0: The Secured Sidecar
 *Objective: Production-ready SDK with cryptographic signing and full state management.*
 
-- [ ] **JWS Verification**: Implement SDK-side signature checking against the LMS Public Key.
-- [ ] **Full State Machine**: Transitions for **BOOTSTRAPPING**, **READY**, and **DEGRADED**.
-- [ ] **Circuit Breaker**: Graceful fallback to "System Default" on synchronization failure.
-- [ ] **Unicode Overrides**: Implement the `-u-` extension mapper logic.
-- [ ] **Ops Integration**: Full SLI/SLO tracking for p99 resolution latency.
+- [X] **JWS Verification**: Implement SDK-side signature checking against the LMS Public Key.
+- [X] **Full State Machine**: Transitions for **BOOTSTRAPPING**, **READY**, and **DEGRADED**.
+- [X] **Circuit Breaker**: Graceful fallback to "System Default" on synchronization failure.
+- [X] **Unicode Overrides**: Implement the `-u-` extension mapper logic.
+- [X] **Ops Integration**: Full SLI/SLO tracking for p99 resolution latency.
 
 ### v0.8.0: The Global Registry
 *Objective: Scale to 7,000+ languages via automated ingestion pipelines.*
