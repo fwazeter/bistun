@@ -1,0 +1,18 @@
+[package]
+name = "bistun"
+version = "0.1.4"
+authors = ["Francis Xavier Wazeter IV"]
+edition = "2024"
+
+[dependencies]
+# Core dependencies will be added in Chunk 1
+
+[dev-dependencies]
+# Required for hermetic mocking in isolation.
+mockall = "0.14.0"
+# Required for statistically significant performance verification
+criterion = { version = "0.8.2", features = ["html_reports"] }
+
+[[bench]]
+name = "performance_verification"
+harness = false # Required to use Criterion's custom harness
