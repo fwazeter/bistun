@@ -23,83 +23,76 @@
 //! ### Glossary
 //! * **Bidi (Bidirectional)**: Text that contains both LTR and RTL scripts natively, requiring complex shaping and layout algorithms.
 
-use crate::core::resolver::bcp47::{LmsError, LocaleEntry};
+use crate::core::resolver::bcp47::LmsError;
+use crate::data::store::LocaleProfile;
 use crate::models::manifest::{CapabilityManifest, TraitValue};
-use crate::models::traits::{Direction, TraitKey};
+use crate::models::traits::TraitKey;
 
 /// Enriches and overrides the `CapabilityManifest` with Orthographic rendering mechanics.
 ///
-/// Time: O(1) per locale lookup | Space: O(1) (In-place mutation)
+/// Time: O(1) map insertions | Space: O(1) (In-place mutation)
 ///
 /// # Logic Trace (Internal)
-/// 1. **Ingestion**: Accept a mutable `manifest` and the canonical `locale`.
-/// 2. **Script Mechanics Lookup**: Query the internal registry stub for base directional traits.
-/// 3. **Extension Override**: (Future) Check the BCP 47 tag for explicit `-u-` rendering overrides and apply them if present.
-/// 4. **Manifest Hydration**: Insert `PrimaryDirection` and `HasBidiElements` directly into the manifest.
-/// 5. **Return**: Yield success, or bubble up an error for unsupported rendering profiles.
-///
-/// # Examples
-/// ```rust
-/// use bistun::core::extension::orthography::apply_rendering_traits;
-/// use bistun::models::manifest::CapabilityManifest;
-/// use bistun::resolvers::bcp47::LocaleEntry;
-///
-/// let mut manifest = CapabilityManifest::new("ar-EG".to_string());
-/// let locale = LocaleEntry { id: "ar-EG".to_string() };
-///
-/// apply_rendering_traits(&mut manifest, &locale).unwrap();
-/// // Manifest now contains RTL directionality and Bidi support requirements.
-/// ```
-///
-/// # Golden I/O
-/// * **Input**: `LocaleEntry { id: "ar-EG" }`
-/// * **Output**: (Mutated Manifest) `PRIMARY_DIRECTION: RTL, HAS_BIDI_ELEMENTS: true`
+/// 1. **Ingestion**: Accept a mutable `manifest` and the dynamic Flyweight `profile`.
+/// 2. **Extension Override**: (Future) Check the BCP 47 tag for explicit `-u-` rendering overrides and apply them if present.
+/// 3. **Manifest Hydration**: Insert `PrimaryDirection`, `HasBidiElements`, and `RequiresShaping` directly into the manifest.
+/// 4. **Return**: Yield success.
 ///
 /// # Errors
-/// * Returns [`LmsError::ResolutionFailed`] if the locale ID is missing from the Orthography registry.
+/// * Designed to return `Result` to conform to the pipeline standard, though currently infallible since the profile guarantees data presence.
 pub fn apply_rendering_traits(
     manifest: &mut CapabilityManifest,
-    locale: &LocaleEntry,
+    profile: &LocaleProfile,
 ) -> Result<(), LmsError> {
-    // 1 & 2. Ingestion & Registry Lookup
-    let (direction, has_bidi, requires_shaping) = match locale.id.as_str() {
-        "ar-EG" => (Direction::RTL, true, true),
-        "th-TH" => (Direction::LTR, false, true), // Requires complex grapheme cluster shaping
-        "zh-Hant" => (Direction::TTB, false, false), // Supports Top-To-Bottom natively
-        "ja-JP" => (Direction::LTR, false, false),
-        "en-US" | "en-AU" => (Direction::LTR, false, false),
-        _ => return Err(LmsError::ResolutionFailed(locale.id.clone())),
-    };
-
-    // 3. Extension Override (Stub for [004-LMS-EXT])
+    // [STUB for 004-LMS-EXT]: Extension Override
     // If the raw tag included `-u-` extensions that override standard orthography,
     // they would be processed and applied here before hydration.
 
-    // 4. Manifest Hydration
-    manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(direction));
+    // Manifest Hydration
+    manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(profile.direction));
 
-    manifest.traits.insert(TraitKey::HasBidiElements, TraitValue::Boolean(has_bidi));
+    manifest.traits.insert(TraitKey::HasBidiElements, TraitValue::Boolean(profile.has_bidi));
 
-    manifest.traits.insert(TraitKey::RequiresShaping, TraitValue::Boolean(requires_shaping));
+    manifest
+        .traits
+        .insert(TraitKey::RequiresShaping, TraitValue::Boolean(profile.requires_shaping));
 
-    // 5. Return Success
+    // Return Success
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::traits::{Direction, MorphType, SegType};
+
+    /// Internal helper to generate a mock Flyweight profile for hermetic testing.
+    fn create_mock_profile(
+        direction: Direction,
+        has_bidi: bool,
+        requires_shaping: bool,
+    ) -> LocaleProfile {
+        LocaleProfile {
+            id: "test-locale".to_string(),
+            morph: MorphType::ISOLATING,
+            base_seg: SegType::SPACE,
+            alt_seg: None,
+            direction,
+            has_bidi,
+            requires_shaping,
+        }
+    }
 
     #[test]
     fn test_apply_rtl_bidi_traits() {
         // [Logic Trace Mapping]
-        // 1. Setup: Create manifest and RTL locale (ar-EG).
+        // 1. Setup: Create manifest and RTL mock profile.
         // 2. Execute: Run orthographic mapper.
-        // 3. Assert: Verify RTL and Bidi flags are correctly inserted.
+        // 3. Assert: Verify RTL and Bidi flags are correctly inserted dynamically.
         let mut manifest = CapabilityManifest::new("ar-EG".to_string());
-        let locale = LocaleEntry { id: "ar-EG".to_string() };
+        let profile = create_mock_profile(Direction::RTL, true, true);
 
-        assert!(apply_rendering_traits(&mut manifest, &locale).is_ok());
+        assert!(apply_rendering_traits(&mut manifest, &profile).is_ok());
 
         let dir = manifest.traits.get(&TraitKey::PrimaryDirection);
         assert_eq!(dir, Some(&TraitValue::Direction(Direction::RTL)));
@@ -111,27 +104,15 @@ mod tests {
     #[test]
     fn test_apply_ttb_traits() {
         // [Logic Trace Mapping]
-        // 1. Setup: Create manifest for Traditional Chinese (zh-Hant).
+        // 1. Setup: Create manifest for Traditional Chinese mock profile.
         // 2. Execute: Run orthographic mapper.
-        // 3. Assert: Verify Top-To-Bottom directionality is assigned.
+        // 3. Assert: Verify Top-To-Bottom directionality is assigned dynamically.
         let mut manifest = CapabilityManifest::new("zh-Hant".to_string());
-        let locale = LocaleEntry { id: "zh-Hant".to_string() };
+        let profile = create_mock_profile(Direction::TTB, false, false);
 
-        assert!(apply_rendering_traits(&mut manifest, &locale).is_ok());
+        assert!(apply_rendering_traits(&mut manifest, &profile).is_ok());
 
         let dir = manifest.traits.get(&TraitKey::PrimaryDirection);
         assert_eq!(dir, Some(&TraitValue::Direction(Direction::TTB)));
-    }
-
-    #[test]
-    fn test_orthography_fails_on_unknown() {
-        // [Logic Trace Mapping]
-        // 1. Setup: Pass an unsupported locale ID.
-        // 2. Execute & Assert: Verify it correctly bubbles the error up the chain.
-        let mut manifest = CapabilityManifest::new("xx-YY".to_string());
-        let locale = LocaleEntry { id: "xx-YY".to_string() };
-
-        let result = apply_rendering_traits(&mut manifest, &locale);
-        assert_eq!(result, Err(LmsError::ResolutionFailed("xx-YY".to_string())));
     }
 }
