@@ -21,19 +21,23 @@ jobs:
         with:
           components: clippy, rustfmt
 
+      # --- ADD THIS STEP BELOW ---
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          shared-key: "lms-shared-cache"
+      # ---------------------------
+
       - name: 1. Check Formatting
         run: cargo fmt --all -- --check
 
       - name: 2. Enforce LMS-TEST (Unit, Integration, & Doc Tests)
-        # This step verifies path exhaustion and executable documentation
         run: cargo test --workspace --all-targets --all-features
 
       - name: 3. Enforce Best Practices (Clippy)
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: 4. Enforce LMS-DOC (Narrative Documentation)
-        # Denies warnings in rustdoc to ensure intra-doc links are valid
-        # and that the narrative code standard is upheld.
         run: cargo doc --no-deps --workspace --all-features --document-private-items
         env:
           RUSTDOCFLAGS: "-D warnings"
@@ -43,8 +47,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          shared-key: "lms-shared-cache"
+
       - name: Run Benchmarks
-        # Note: This requires the 'benches' to be set up in Step 4
         run: cargo bench

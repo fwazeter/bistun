@@ -1,0 +1,23 @@
+- name: "domain:orthography"
+  color: "1d76db"
+  description: "ISO 15924, Rendering, Shaping, and Directionality logic."
+
+- name: "domain:typology"
+  color: "0e8a16"
+  description: "ISO 639-3, Language Traits, and Morphological DNA."
+
+- name: "domain:taxonomy"
+  color: "fbca04"
+  description: "BCP 47, Resolver Chains, and Fallback Orchestration."
+
+- name: "gate:performance"
+  color: "e11d21"
+  description: "Violations of the <1ms latency budget."
+
+- name: "gate:narrative"
+  color: "d4c5f9"
+  description: "LMS-DOC violations or missing Logic Traces."
+
+- name: "gate:test"
+  color: "c5def5"
+  description: "LMS-TEST violations or non-hermetic failures."

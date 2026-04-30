@@ -39,8 +39,15 @@ bench-critical:
 # Initialize a new source file from the TEMPLATE
 # Usage: just new-module path/to/file.rs
 new-module path:
+    mkdir -p $(dirname {{path}})
     cp TEMPLATE.rs {{path}}
     @echo "Initialized {{path}} from TEMPLATE.rs"
+
+# Configure local git hooks to use the .githooks directory
+install-hooks:
+    git config core.hooksPath .githooks
+    chmod +x .githooks/pre-push
+    @echo "Git hooks installed successfully according to v0.1.4 standard."
 
 # Clean build artifacts
 clean:

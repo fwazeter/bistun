@@ -9,8 +9,7 @@
 
 ## I. Repository Overview
 
-This project follows a "Separation of Writing Systems" philosophy. We decouple the **Physics** (rendering/scripts), **Genetics** (language traits), and **Logic** (resolution engine) into distinct domains. This ensures the system remains a "System of Record" that can scale to 7,000+ languages without architectural debt.
-
+This project follows a "Separation of Writing Systems" philosophy. We decouple the **Orthography** (rendering/scripts), **Typology** (language traits), and **Taxonomy** (resolution engine) into distinct domains. This ensures the system remains a "System of Record" that can scale to 7,000+ languages without architectural debt.
 ---
 
 ## II. Directory Structure
@@ -59,7 +58,7 @@ bistun/
 ## III. Architectural Rationale
 
 ### 1. The Core Domain (`src/core/`)
-Separates how we **find** a locale (`resolver`), how we **merge** its data (`aggregator`), and how we **modify** it at runtime (`extension`). This follows the **Single Responsibility Principle**, allowing us to change resolution logic without breaking rendering logic.
+Separates how we categorize a locale (**Taxonomy**), how we merge its data (**Typology**), and how we modify its rendering at runtime (**Orthography**). This follows the **Single Responsibility Principle**, allowing us to change resolution logic without breaking rendering logic.
 
 ### 2. The Strategy Domain (`src/strategy/`)
 Uses the **Strategy Pattern** to prevent a "Giant Match Statement" in the core. Adding a new language type (e.g., `POLYSYNTHETIC`) only requires adding a file here and updating the factory, leaving the orchestrator untouched.
@@ -71,13 +70,13 @@ Separates the **WORM (Write-Once, Read-Many)** storage logic from the in-memory 
 
 ## IV. Documentation Hierarchy (`docs/`)
 
-The documentation is split into four layers to serve different stakeholders (and AI agents):
+The documentation is split into five layers to serve different stakeholders (and AI agents):
 
-1.  **Foundations (`docs/foundations/`)**: The "Executive" layer. Explains the "Global Truth" vision, implementation phases, and core algorithms. Summarized in `00-system-overview.md`
+1.  **Foundations (`docs/foundations/`)**: The "Executive" layer. Explains the "Global Truth" vision, implementation phases, and core algorithms. Summarized in `00-system-overview.md`.
 2.  **Blueprints (`docs/blueprints/`)**: The "Implementation" layer. Highly technical, standard-linked specifications (001-012) used as "Ground Truth" during coding.
-3.  **Standards (`docs/standards/`)**: The "Engineering" layer. Defines the quality of the codebase, including the **LMS-DOC** narrative standards.
+3.  **Standards (`docs/standards/`)**: The "Engineering" layer. Defines the quality of the codebase, including **LMS-DOC** narrative standards and **LMS-AI** alignment.
 4.  **Interfaces (`docs/interfaces/`)**: The "Admin" layer. Specs for external UI tools like the **Curator UI**.
-5.  **Processes (`docs/processes/`)**: The "Operational" layer. Explains the mechanics of CI gates, performance benchmarking, error handling, and release promotion.
+5.  **Processes (`docs/processes/`)**: The "Operational" layer. Detailed guides for the mechanics of CI gates, performance benchmarking, error handling, and release promotion.
 
 ---
 
