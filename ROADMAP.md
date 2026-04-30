@@ -1,8 +1,6 @@
 # ROADMAP: Bistun LMS Implementation Path
 
 > **Version:** 0.1.4  
-> **Author:** Francis Xavier Wazeter IV  
-> **Date:** 04/29/2026  
 > **Status:** Tactical Execution Plan
 
 ---
@@ -16,8 +14,8 @@ This document outlines the tactical execution strategy for the Bistun Linguistic
 ## II. Priority Chunks (Dependency Gravity)
 
 1.  **Foundation**: Models, Enums, and DTOs.
-2.  **Resolution**: The Logical Engine and Resolver Chain.
-3.  **Synthesis**: Trait Aggregator and High-Water Mark logic.
+2.  **Taxonomy**: The Logical Engine and **Taxonomic** Resolver Chain.
+3.  **Typology**: **Typological** Trait Aggregator and High-Water Mark logic.
 4.  **Optimization**: Flyweight instance pools and Atomic Reference Swaps.
 5.  **Orchestration**: SDK State Machine and the 5-Phase Pipeline.
 
@@ -31,8 +29,8 @@ This document outlines the tactical execution strategy for the Bistun Linguistic
 - [ ] **Standards Verification**: Ensure CI gates for `LMS-DOC` and `LMS-TEST` are active.
 - [ ] **Core Models**: Implement `TraitKey`, `Direction`, `SegType`, and `MorphType` enums in `src/models/traits.rs`.
 - [ ] **Manifest DTO**: Define the immutable `CapabilityManifest` and `Metadata` structures.
-- [ ] **Basic Resolver**: Implement the `ExactMatchResolver` and `DefaultFallbackResolver`.
-- [ ] **Aggregator MVP**: Implement the `TraitAggregator` with `HighWaterMark` logic for segmentation.
+- [ ] **Taxonomic Resolver**: Implement the `ExactMatchResolver` and `DefaultFallbackResolver`.
+- [ ] **Typology Aggregator MVP**: Implement the `TraitAggregator` with `HighWaterMark` logic for segmentation.
 - [ ] **Orchestrator MVP**: A simplified `LinguisticManager` coordinating a 3-phase pipeline (Resolve -> Aggregate -> Telemetry).
 
 ### v0.2.0: The Performance Engine
@@ -58,7 +56,7 @@ This document outlines the tactical execution strategy for the Bistun Linguistic
 - [ ] **ISO Scrapers**: Automated scripts for ISO 639-3 and ISO 15924 data ingestion.
 - [ ] **CLDR Importer**: Synchronization with Unicode CLDR for plural rules and directionality.
 - [ ] **Truth Hierarchy**: Implementation of Tier 1-4 collision and drift management.
-- [ ] **DNA Linter**: Strict Level A pre-persistence validation in the repository.
+- [ ] **DNA Linter**: Strict **Typological Integrity** pre-persistence validation in the repository.
 
 ### v1.0.0: System of Record
 *Objective: Final production stability and administrative curation tools.*
@@ -78,3 +76,10 @@ This document outlines the tactical execution strategy for the Bistun Linguistic
 - [ ] Implement logic with `// [STEP X]` inline comments mapping to the `# Logic Trace`.
 - [ ] Verify complexity matches the performance budget for the target phase.
 - [ ] Pass `cargo test`, `cargo clippy`, and `cargo doc`.
+
+---
+
+**Author**: Francis Xavier Wazeter IV  
+**License**: GNU GPL v3  
+**Date Created**: 04/29/2026  
+**Date Updated**: 04/30/2026

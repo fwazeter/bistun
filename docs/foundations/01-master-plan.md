@@ -1,8 +1,6 @@
 # The Definitive Linguistic Metadata Service (LMS) Master Plan
 
 > **Version:** 0.1.4
-<br> **Author:** Francis Xavier Wazeter IV
-<br> **Date:** 04/29/2026
 
 ## I. Executive Summary
 
@@ -22,27 +20,27 @@ The architecture leverages three international standards to provide a comprehens
 
 ## III. Detailed Data Architecture
 
-### 1. Language_Definition (The "Genetic" Identity)
+### 1. Language_Definition (The Typological Identity)
 *Immutable properties of a language regardless of script.*
 
-| Variable | Type | Description |
-| :--- | :--- | :--- |
-| **Language_ID** | String(3-8) | **ISO 639-3 Code** (Supports private use extensions). |
-| **Period** | Enum | Living, Historical, Ancient, Extinct, Constructed. |
-| **Morphology_Type** | Enum | `ISOLATING`, `AGGLUTINATIVE`, `FUSIONAL`, `TEMPLATIC`, `POLYSYNTHETIC`. |
-| **Synthesis_Degree** | Integer | Complexity scale (1–10) for lemmatization logic. |
-| **Normalization** | Enum | Recommended Unicode normalization (NFC/NFD). |
+| Variable             | Type        | Description                                                             |
+|:---------------------|:------------|:------------------------------------------------------------------------|
+| **Language_ID**      | String(3-8) | **ISO 639-3 Code** (Supports private use extensions).                   |
+| **Period**           | Enum        | Living, Historical, Ancient, Extinct, Constructed.                      |
+| **Morphology_Type**  | Enum        | `ISOLATING`, `AGGLUTINATIVE`, `FUSIONAL`, `TEMPLATIC`, `POLYSYNTHETIC`. |
+| **Synthesis_Degree** | Integer     | Complexity scale (1–10) for lemmatization logic.                        |
+| **Normalization**    | Enum        | Recommended Unicode normalization (NFC/NFD).                            |
 
-### 2. Script_Definition (The "Physics" of Rendering)
+### 2. Script_Definition (The Orthographic Mechanics)
 *Technical requirements of the writing system.*
 
-| Variable | Type | Description |
-| :--- | :--- | :--- |
-| **Script_ID** | String(4) | **ISO 15924 Code** (e.g., `Phnx`). |
-| **Directionality** | Enum | `LTR`, `RTL`, `TTB`, `BIDI`. |
-| **Shaping_Req** | Boolean | True if script requires contextual shaping. |
-| **Segmentation** | Enum | `SPACE`, `DICTIONARY`, `CHARACTER`, `NONE`. |
-| **Unicode_Registry** | Ref | Pointer to shared HEX ranges. |
+| Variable             | Type      | Description                                 |
+|:---------------------|:----------|:--------------------------------------------|
+| **Script_ID**        | String(4) | **ISO 15924 Code** (e.g., `Phnx`).          |
+| **Directionality**   | Enum      | `LTR`, `RTL`, `TTB`, `BIDI`.                |
+| **Shaping_Req**      | Boolean   | True if script requires contextual shaping. |
+| **Segmentation**     | Enum      | `SPACE`, `DICTIONARY`, `CHARACTER`, `NONE`. |
+| **Unicode_Registry** | Ref       | Pointer to shared HEX ranges.               |
 
 ---
 
@@ -50,8 +48,8 @@ The architecture leverages three international standards to provide a comprehens
 
 The engine returns a **CapabilityManifest DTO** via a 5-phase pipeline:
 
-1.  **Resolve Locale:** Execute BCP 47 fallback using a **Chain of Responsibility**.
-2.  **Aggregate Scripts:** Iterate through the `Script_Manifest` to determine direction and global traits via **High-Water Mark Strategy**.
+1.  **Taxonomic Resolution:** Execute BCP 47 fallback using a **Chain of Responsibility**.
+2.  **Typological & Orthographic Aggregation:** Iterate through the `Script_Manifest` to determine direction and global traits via **High-Water Mark Strategy**.
 3.  **Process Overrides:** Apply BCP 47 `-u-` extensions via the **Unicode Extension Mapper**.
 4.  **Integrity Check:** Perform a lightweight **Runtime Validation** to ensure manifest structural consistency.
 5.  **Telemetry Phase:** Populate metadata and export resolution metrics (latency target: $<1\text{ms}$).
@@ -63,7 +61,7 @@ The engine returns a **CapabilityManifest DTO** via a 5-phase pipeline:
 ### 1. The Strategy Pattern (Algorithmic Selection)
 The SDK uses a **Registry of Strategies** instead of hardcoded logic, invoking handlers based on linguistic traits.
 
-### 2. The Chain of Responsibility (Locale Fallback)
+### 2. The Chain of Responsibility (Taxonomic Fallback)
 Modular **Resolvers** handle the fallback mechanism (Exact Match $\rightarrow$ Truncation $\rightarrow$ Alias $\rightarrow$ Default).
 
 ### 3. The Flyweight Pattern (Memory Optimization)
@@ -95,3 +93,10 @@ The SDK transitions through explicit states (**BOOTSTRAPPING**, **READY**, **DEG
 * **Truth Hierarchy:** Curated traits override automated imports (Manual > CLDR > ISO).
 * **Tiered Validation:** Strict DNA checks during curation vs. lightweight integrity checks during runtime.
 * **Trait Extension Pattern:** The `CapabilityManifestDTO` uses a **Map-based Container** to prevent breaking API contracts during evolution.
+
+---
+
+**Author**: Francis Xavier Wazeter IV  
+**License**: GNU GPL v3  
+**Date Created**: 04/29/2026  
+**Date Updated**: 04/30/2026

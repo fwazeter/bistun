@@ -1,8 +1,6 @@
 # PROJECT-STRUCTURE: Architectural Logic & Layout
 
 > **Version:** 0.1.4
-<br> **Author:** Francis Xavier Wazeter IV
-<br> **Date:** 04/29/2026
 <br> **Status:** Engineering Standard
 
 ---
@@ -10,6 +8,7 @@
 ## I. Repository Overview
 
 This project follows a "Separation of Writing Systems" philosophy. We decouple the **Orthography** (rendering/scripts), **Typology** (language traits), and **Taxonomy** (resolution engine) into distinct domains. This ensures the system remains a "System of Record" that can scale to 7,000+ languages without architectural debt.
+
 ---
 
 ## II. Directory Structure
@@ -18,7 +17,7 @@ This project follows a "Separation of Writing Systems" philosophy. We decouple t
 bistun/
 ├── Cargo.toml           # Project manifest and dependencies
 ├── LICENSE              # GNU GPL v3
-├── README.md            # Reconciled v0.1.4 executive summary
+├── README.md            # Value proposition and quick-start
 ├── PROJECT_MAP.md       # Blueprint-to-file mapping table
 ├── PROJECT_STRUCTURE.md # This document: Architectural rationale
 ├── docs/                # Multi-layered documentation suite
@@ -84,3 +83,10 @@ The documentation is split into five layers to serve different stakeholders (and
 
 * **Intensive Documentation**: Every file in the `src/` tree must follow the **LMS-DOC** standard, providing a "Logic Trace" for every function.
 * **Module Links**: Module-level documentation (`//!`) must link back to the specific **Blueprint** (e.g., `Ref: [001-LMS-CORE]`) to maintain the thread between theory and execution.
+
+---
+
+**Author**: Francis Xavier Wazeter IV  
+**License**: GNU GPL v3  
+**Date Created**: 04/29/2026  
+**Date Updated**: 04/30/2026

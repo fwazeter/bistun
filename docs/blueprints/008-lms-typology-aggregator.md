@@ -1,33 +1,29 @@
-# LMS-DNA: Trait Aggregator & High-Water Mark Logic
+# LMS-TYPOLOGY: Trait Aggregator & High-Water Mark Logic
 
 > **Version:** 0.1.4
-<br> **Author:** Francis Xavier Wazeter IV
-<br> **Date:** 04/29/2026
-
-**Status:** Implementation Reference
 
 ---
 
 ## I. Overview
 
-The Trait Aggregator is the computational core of the Capability Engine. Its purpose is to merge the "Genetic" traits of a language with the "Physical" traits of its associated scripts into a single, decoupled DTO. This process utilizes specific logical filters to ensure the resulting manifest accurately reflects the technical requirements of complex, multi-script locales.
+The Trait Aggregator is the computational core of the Capability Engine. Its purpose is to merge the **Typological** traits of a language with the **Orthographic** mechanics of its associated scripts into a single, decoupled DTO. This process utilizes specific logical filters to ensure the resulting manifest accurately reflects the technical requirements of complex, multi-script locales.
 
 ---
 
 ## II. The `TraitAggregator` Class
 
-This class processes the `Language_Definition` and `Script_Manifest` retrieved by the Logical Engine.
+This class processes the **Typological Identity** (Language Definition) and the **Orthographic Mechanics** (Script Manifest) retrieved by the Logical Engine.
 
 ### 1. Functional Input
 
-* **`language`**: The immutable identity record (e.g., `Morphology_Type`, `Synthesis_Degree`).
-* **`scripts`**: A priority-ordered list of script definitions (e.g., `[Hani, Hira, Kana]`).
+* **`language`**: The immutable **Typological** record (e.g., `Morphology_Type`, `Synthesis_Degree`).
+* **`scripts`**: A priority-ordered list of **Orthographic** definitions (e.g., `[Hani, Hira, Kana]`).
 
 ### 2. The `Aggregate()` Workflow
 
 The aggregator executes a three-tier logic gate to populate the `traits` map:
 
-1.  **Direct Mapping**: One-to-one transfer of language-specific traits.
+1.  **Direct Mapping**: One-to-one transfer of typology-specific traits.
 2.  **Positional Priority**: Selection of UI-critical traits from the primary script.
 3.  **Cumulative Union**: Aggregation of rendering requirements across all scripts.
 
@@ -69,4 +65,11 @@ The Aggregator iterates through the `Script_Manifest` and selects the strategy w
 
 ## V. Final Trait Synthesis
 
-Once tiers are processed, the aggregator merges the `Morphology_Type` and `Synthesis_Degree` from the language record to complete the "Golden Set" of keys defined in the API contract.
+Once tiers are processed, the aggregator merges the `Morphology_Type` and `Synthesis_Degree` from the **Typological record** to complete the "Golden Set" of keys defined in the API contract.
+
+---
+
+**Author**: Francis Xavier Wazeter IV  
+**License**: GNU GPL v3  
+**Date Created**: 04/29/2026  
+**Date Updated**: 04/30/2026
