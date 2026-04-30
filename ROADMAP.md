@@ -26,12 +26,12 @@ This document outlines the tactical execution strategy for the Bistun Linguistic
 ### v0.1.0: The Static Foundation (Current Milestone)
 *Objective: Build a working in-memory capability engine with a hardcoded "Golden Set" of 5 languages.*
 
-- [ ] **Standards Verification**: Ensure CI gates for `LMS-DOC` and `LMS-TEST` are active.
-- [ ] **Core Models**: Implement `TraitKey`, `Direction`, `SegType`, and `MorphType` enums in `src/models/traits.rs`.
-- [ ] **Manifest DTO**: Define the immutable `CapabilityManifest` and `Metadata` structures.
-- [ ] **Taxonomic Resolver**: Implement the `ExactMatchResolver` and `DefaultFallbackResolver`.
-- [ ] **Typology Aggregator MVP**: Implement the `TraitAggregator` with `HighWaterMark` logic for segmentation.
-- [ ] **Orchestrator MVP**: A simplified `LinguisticManager` coordinating a 3-phase pipeline (Resolve -> Aggregate -> Telemetry).
+- [X] **Standards Verification**: Ensure CI gates for `LMS-DOC` and `LMS-TEST` are active.
+- [X] **Core Models**: Implement `TraitKey`, `Direction`, `SegType`, and `MorphType` enums in `src/models/traits.rs`.
+- [X] **Manifest DTO**: Define the immutable `CapabilityManifest` and `Metadata` structures.
+- [X] **Taxonomic Resolver**: Implement the `ExactMatchResolver` and `DefaultFallbackResolver`.
+- [X] **Typology Aggregator MVP**: Implement the `TraitAggregator` with `HighWaterMark` logic for segmentation.
+- [X] **Orchestrator MVP**: A simplified `LinguisticManager` coordinating a 3-phase pipeline (Resolve -> Aggregate -> Telemetry).
 
 ### v0.2.0: The Performance Engine
 *Objective: Achieve 80% memory reduction and sub-millisecond resolution via Flyweight patterns.*

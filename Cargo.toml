@@ -1,6 +1,6 @@
 [package]
 name = "bistun"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Francis Xavier Wazeter IV"]
 edition = "2024"
 

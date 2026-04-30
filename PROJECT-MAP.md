@@ -1,6 +1,6 @@
 # PROJECT-MAP: Blueprint to Implementation
 
-> **Version:** 0.1.4
+> **Version:** 0.1.5
 > <br> **Author:** Francis Xavier Wazeter IV
 <br> **Status:** Architecture Reference
 
