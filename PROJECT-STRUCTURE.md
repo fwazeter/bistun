@@ -1,6 +1,6 @@
 # PROJECT-STRUCTURE: Architectural Logic & Layout
 
-> **Version:** 0.1.5
+> **Version:** 0.5.0
 <br> **Status:** Engineering Standard
 
 ---

@@ -28,14 +28,15 @@ use crate::data::store::LocaleProfile;
 use crate::models::manifest::{CapabilityManifest, TraitValue};
 use crate::models::traits::TraitKey;
 
-/// Enriches and overrides the `CapabilityManifest` with Orthographic rendering mechanics.
+/// Enriches and overrides the `CapabilityManifest` with Orthographic traits and Unicode extensions.
 ///
-/// Time: O(1) map insertions | Space: O(1) (In-place mutation)
+/// Time: O(N) string traversal | Space: O(1) map insertions
 ///
 /// # Logic Trace (Internal)
-/// 1. **Ingestion**: Accept a mutable `manifest` and the dynamic Flyweight `profile`.
-/// 2. **Extension Override**: (Future) Check the BCP 47 tag for explicit `-u-` rendering overrides and apply them if present.
-/// 3. **Manifest Hydration**: Insert `PrimaryDirection`, `HasBidiElements`, and `RequiresShaping` directly into the manifest.
+/// 1. **Base Hydration**: Insert mechanical default rendering traits
+///    (`PrimaryDirection`, `HasBidiElements`, `RequiresShaping`) from the Flyweight profile.
+/// 2. **Extension Parsing**: Scan the `raw_tag` for the `-u-` singleton sequence.
+/// 3. **Override Execution**: If `-u-nu` (Numbers) or `-u-ca-` (Calendar) are found, extract their associated values and inject them into the manifest.
 /// 4. **Return**: Yield success.
 ///
 /// # Errors
@@ -43,12 +44,9 @@ use crate::models::traits::TraitKey;
 pub fn apply_rendering_traits(
     manifest: &mut CapabilityManifest,
     profile: &LocaleProfile,
+    raw_tag: &str,
 ) -> Result<(), LmsError> {
-    // [STUB for 004-LMS-EXT]: Extension Override
-    // If the raw tag included `-u-` extensions that override standard orthography,
-    // they would be processed and applied here before hydration.
-
-    // Manifest Hydration
+    // 1. Base hydration
     manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(profile.direction));
 
     manifest.traits.insert(TraitKey::HasBidiElements, TraitValue::Boolean(profile.has_bidi));
@@ -57,7 +55,39 @@ pub fn apply_rendering_traits(
         .traits
         .insert(TraitKey::RequiresShaping, TraitValue::Boolean(profile.requires_shaping));
 
-    // Return Success
+    // 2. Extension Parsing (BCP 47 `-u-`)
+    if let Some(u_ext_start) = raw_tag.find("-u-") {
+        // Isolate the extension subtag block
+        let extension_subtag = &raw_tag[u_ext_start + 3..];
+        let parts: Vec<&str> = extension_subtag.split('-').collect();
+
+        // 3. Override Execution
+        let mut i = 0;
+        while i < parts.len() {
+            // If we hit another BCP 47 singleton (e.g., -t- or -x-), the -u- block is over.
+            if parts[i].len() == 1 {
+                break;
+            }
+
+            match parts[i] {
+                "nu" if i + 1 < parts.len() => {
+                    manifest.traits.insert(
+                        TraitKey::NumberingSystem,
+                        TraitValue::String(parts[i + 1].to_string()),
+                    );
+                    i += 2;
+                }
+                "ca" if i + 1 < parts.len() => {
+                    manifest
+                        .traits
+                        .insert(TraitKey::Calendar, TraitValue::String(parts[i + 1].to_string()));
+                    i += 2;
+                }
+                // Skip unrecognized extensions
+                _ => i += 1,
+            }
+        }
+    }
     Ok(())
 }
 
@@ -73,7 +103,7 @@ mod tests {
         requires_shaping: bool,
     ) -> LocaleProfile {
         LocaleProfile {
-            id: "test-locale".to_string(),
+            id: "test".to_string(),
             morph: MorphType::ISOLATING,
             base_seg: SegType::SPACE,
             alt_seg: None,
@@ -81,6 +111,27 @@ mod tests {
             has_bidi,
             requires_shaping,
         }
+    }
+
+    #[test]
+    fn test_apply_unicode_overrides() {
+        let mut manifest = CapabilityManifest::new("en-US".to_string());
+        // Fix: Pass default LTR and false flags for the baseline English test
+        let profile = create_mock_profile(Direction::LTR, false, false);
+
+        // Pass a tag with both Number (-nu-) and Calendar (-ca-) extensions
+        assert!(
+            apply_rendering_traits(&mut manifest, &profile, "en-US-u-nu-latn-ca-gregory").is_ok()
+        );
+
+        assert_eq!(
+            manifest.traits.get(&TraitKey::NumberingSystem),
+            Some(&TraitValue::String("latn".to_string()))
+        );
+        assert_eq!(
+            manifest.traits.get(&TraitKey::Calendar),
+            Some(&TraitValue::String("gregory".to_string()))
+        );
     }
 
     #[test]
@@ -92,7 +143,8 @@ mod tests {
         let mut manifest = CapabilityManifest::new("ar-EG".to_string());
         let profile = create_mock_profile(Direction::RTL, true, true);
 
-        assert!(apply_rendering_traits(&mut manifest, &profile).is_ok());
+        // Fix: Added the "ar-EG" raw_tag as the 3rd argument
+        assert!(apply_rendering_traits(&mut manifest, &profile, "ar-EG").is_ok());
 
         let dir = manifest.traits.get(&TraitKey::PrimaryDirection);
         assert_eq!(dir, Some(&TraitValue::Direction(Direction::RTL)));
@@ -110,7 +162,8 @@ mod tests {
         let mut manifest = CapabilityManifest::new("zh-Hant".to_string());
         let profile = create_mock_profile(Direction::TTB, false, false);
 
-        assert!(apply_rendering_traits(&mut manifest, &profile).is_ok());
+        // Fix: Added the "zh-Hant" raw_tag as the 3rd argument
+        assert!(apply_rendering_traits(&mut manifest, &profile, "zh-Hant").is_ok());
 
         let dir = manifest.traits.get(&TraitKey::PrimaryDirection);
         assert_eq!(dir, Some(&TraitValue::Direction(Direction::TTB)));

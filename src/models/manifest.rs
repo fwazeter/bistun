@@ -40,6 +40,7 @@ pub enum TraitValue {
     SegType(SegType),
     MorphType(MorphType),
     StringArray(Vec<String>),
+    String(String),
 }
 
 /// The immutable CapabilityManifest DTO delivered to consuming services.
