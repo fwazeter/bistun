@@ -73,10 +73,11 @@ Separates the **WORM (Write-Once, Read-Many)** storage logic from the in-memory 
 
 The documentation is split into four layers to serve different stakeholders (and AI agents):
 
-1.  **Foundations (`docs/foundations/`)**: The "Executive" layer. Explains the "Global Truth" vision, implementation phases, and core algorithms.
+1.  **Foundations (`docs/foundations/`)**: The "Executive" layer. Explains the "Global Truth" vision, implementation phases, and core algorithms. Summarized in `00-system-overview.md`
 2.  **Blueprints (`docs/blueprints/`)**: The "Implementation" layer. Highly technical, standard-linked specifications (001-012) used as "Ground Truth" during coding.
 3.  **Standards (`docs/standards/`)**: The "Engineering" layer. Defines the quality of the codebase, including the **LMS-DOC** narrative standards.
 4.  **Interfaces (`docs/interfaces/`)**: The "Admin" layer. Specs for external UI tools like the **Curator UI**.
+5.  **Processes (`docs/processes/`)**: The "Operational" layer. Explains the mechanics of CI gates, performance benchmarking, error handling, and release promotion.
 
 ---
 

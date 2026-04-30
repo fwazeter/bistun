@@ -49,16 +49,19 @@ impl LinguisticManager {
     /// Use the 'instrument' macro to automatically create a span for the function.
     #[tracing::instrument(skip(self), fields(locale = %tag))]
     pub fn get_manifest(&self, tag: &str) -> Result<CapabilityManifest, LmsError> {
-        // [STEP 1]: Logic Trace Step
+        // [STEP 1]: Logic Trace Step (Resolution Phase)
         tracing::debug!(step = 1, "Initiating locale resolution chain");
-        let entry = self.resolver.resolve(tag)?;
+        let entry = self.resolver.resolve(tag)?; // Automatically bubbles up ResolutionError
 
-        // [STEP 2]: Aggregation
+        // [STEP 2]: Aggregation Phase
         let span = tracing::info_span!("aggregation_phase");
         let _enter = span.enter();
 
-        // Implementation logic...
-        todo!()
+        // ... [Implementation logic to build the manifest] ...
+
+        // Final Step: Return the successfully constructed manifest
+        let manifest = CapabilityManifest::new(entry);
+        Ok(manifest)
     }
 }
 ```

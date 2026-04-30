@@ -25,7 +25,10 @@ cargo fmt --all
 We follow a strict **Testing-First** and **Narrative-Code** workflow.
 
 ### 1. Initializing a Module
-Never start a file from scratch. Always copy the `TEMPLATE.rs` from the root directory into your new module's location in `src/`.
+Never start a file from scratch. Always use the task runner to bootstrap your new module according to the **v0.1.4** standard:
+```bash
+just new-module src/path/to/file.rs
+```
 
 ### 2. The "Red-Green-Narrative" Cycle
 1. **Red**: Write a failing unit test in the module's `mod tests` block.
