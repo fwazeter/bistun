@@ -1,7 +1,6 @@
 # PROJECT-MAP: Blueprint to Implementation
 
 > **Version:** 0.1.5
-> <br> **Author:** Francis Xavier Wazeter IV
 <br> **Status:** Architecture Reference
 
 This document maps the **LMS Blueprints** to their physical locations in the Rust source tree.
@@ -20,3 +19,10 @@ This document maps the **LMS Blueprints** to their physical locations in the Rus
 | **010-LMS-MEM**    | Memory         | `src/data/store.rs`      | Flyweight instance pools and Atomic Reference Swap.                |
 | **011-LMS-DTO**    | Schema         | `src/models/`            | Immutable Data Transfer Objects and standardized Enums.            |
 | **012-LMS-ENG**    | Logical Engine | `src/core/resolver/`     | Chain of Responsibility for locale resolution.                     |
+
+---
+
+**Author**: Francis Xavier Wazeter IV  
+**License**: GNU GPL v3  
+**Date Created**: 04/29/2026  
+**Date Updated**: 04/30/2026
