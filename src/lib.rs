@@ -22,8 +22,10 @@
 //! Architectural < 1ms latency budget enforced.
 
 pub mod core;
+pub mod data;
 pub mod manager;
 pub mod models;
+pub mod validation;
 
 // Public re-exports for ergonomic SDK consumption
 pub use manager::LinguisticManager;
