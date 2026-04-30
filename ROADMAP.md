@@ -36,10 +36,10 @@ This document outlines the tactical execution strategy for the Bistun Linguistic
 ### v0.2.0: The Performance Engine
 *Objective: Achieve 80% memory reduction and sub-millisecond resolution via Flyweight patterns.*
 
-- [ ] **Flyweight Pools**: Implement immutable instance pools in `src/data/store.rs`.
-- [ ] **Truncation Logic**: Implement the RFC 4647 `TruncationResolver`.
-- [ ] **Atomic Swap**: Implement background shadow-registry hydration and atomic pointer swaps.
-- [ ] **Benchmarks**: Add performance unit tests to verify the $< 1\text{ms}$ budget.
+- [X] **Flyweight Pools**: Implement immutable instance pools in `src/data/store.rs`.
+- [X] **Truncation Logic**: Implement the RFC 4647 `TruncationResolver`.
+- [X] **Atomic Swap**: Implement background shadow-registry hydration and atomic pointer swaps.
+- [X] **Benchmarks**: Add performance unit tests to verify the $< 1\text{ms}$ budget.
 
 ### v0.5.0: The Secured Sidecar
 *Objective: Production-ready SDK with cryptographic signing and full state management.*
