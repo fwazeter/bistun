@@ -2,7 +2,7 @@
 
 [![LMS-CI](https://github.com/fwazeter/bistun/actions/workflows/ci.yml/badge.svg)](https://github.com/fwazeter/bistun/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version: 0.1.5](https://img.shields.io/badge/Version-0.1.4-green.svg)](#)
+[![Version: 0.5.0](https://img.shields.io/badge/Version-0.1.4-green.svg)](#)
 
 Bistun LMS is a high-performance **Linguistic Metadata Service** designed to serve as the "System of Record" for software locales. It transforms complex cultural variables into functional **Typological**, **Orthographic**, and **Taxonomic** capabilities by synthesizing **ISO 639-3**, **ISO 15924**, and **BCP 47** standards.
 
