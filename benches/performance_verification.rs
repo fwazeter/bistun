@@ -30,7 +30,8 @@ fn bench_resolution_pipeline(c: &mut Criterion) {
 
     // [STEP 2]: Prepare Mock Environment
     // let manager = LinguisticManager::initialize(Config::default());
-    let target_locale = black_box("ar-EG-u-nu-latn");
+    // TEMPORARILY set to _ to signal to compiler that unused variable is intentional for current benchmark stub.
+    let _target_locale = black_box("ar-EG-u-nu-latn");
 
     // [STEP 3]: Execute & Measure
     group.bench_function("get_manifest (warm cache)", |b| {

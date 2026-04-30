@@ -5,8 +5,8 @@
 too-many-arguments-threshold = 5
 type-complexity-threshold = 250
 
-# Ensure doc examples are present for all public items
-missing-docs-in-private-items = true
+# Ensure documentation checks for crate items
+missing-docs-in-crate-items = true
 
-# Performance-related lints for <1ms targets
-warn-on-all-auto-impl = true
+# Performance-related lints for <1ms targets  (not confirmed feature)
+# warn-on-all-auto-impl = true
