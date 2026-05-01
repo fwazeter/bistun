@@ -53,10 +53,10 @@ This document outlines the tactical execution strategy for the Bistun Linguistic
 ### v0.8.0: The Global Registry
 *Objective: Scale to 7,000+ languages via automated ingestion pipelines.*
 
-- [ ] **ISO Scrapers**: Automated scripts for ISO 639-3 and ISO 15924 data ingestion.
-- [ ] **CLDR Importer**: Synchronization with Unicode CLDR for plural rules and directionality.
-- [ ] **Truth Hierarchy**: Implementation of Tier 1-4 collision and drift management.
-- [ ] **DNA Linter**: Strict **Typological Integrity** pre-persistence validation in the repository.
+- [X] **ISO Scrapers**: Automated scripts for ISO 639-3 and ISO 15924 data ingestion.
+- [X] **CLDR Importer**: Synchronization with Unicode CLDR for plural rules and directionality.
+- [X] **Truth Hierarchy**: Implementation of Tier 1-4 collision and drift management.
+- [X] **DNA Linter**: Strict **Typological Integrity** pre-persistence validation in the repository.
 
 ### v1.0.0: System of Record
 *Objective: Final production stability and administrative curation tools.*

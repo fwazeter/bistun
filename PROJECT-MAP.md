@@ -1,6 +1,6 @@
 # PROJECT-MAP: Blueprint to Implementation
 
-> **Version:** 0.5.0
+> **Version:** 0.8.0
 <br> **Status:** Architecture Reference
 
 This document maps the **LMS Blueprints** to their physical locations in the Rust source tree.
