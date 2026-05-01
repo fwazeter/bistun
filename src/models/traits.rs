@@ -41,6 +41,7 @@ pub enum TraitKey {
     RequiresShaping,
     SegmentationStrategy,
     MorphologyType,
+    PluralCategories,
     UnicodePreloadBlocks,
     NumberingSystem,
     Calendar,

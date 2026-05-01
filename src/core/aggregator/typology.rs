@@ -82,6 +82,7 @@ mod tests {
             direction: Direction::LTR,
             has_bidi: false,
             requires_shaping: false,
+            plurals: vec!["other".to_string()],
         }
     }
 

@@ -110,6 +110,7 @@ mod tests {
             direction,
             has_bidi,
             requires_shaping,
+            plurals: vec!["other".to_string()],
         }
     }
 

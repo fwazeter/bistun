@@ -20,6 +20,7 @@
 //! **Why**: This module manages the in-memory cache and state for all linguistic data.
 //! **Impact**: If this module fails, the application will panic due to memory corruption or exhaust host memory via duplicate allocations.
 
+pub mod compiler;
 pub mod repository;
 pub mod store;
 pub mod swap;

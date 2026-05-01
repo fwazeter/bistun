@@ -104,6 +104,14 @@ mod tests {
             direction: Direction::RTL,
             has_bidi: true,
             requires_shaping: true,
+            plurals: vec![
+                "zero".to_string(),
+                "one".to_string(),
+                "two".to_string(),
+                "few".to_string(),
+                "many".to_string(),
+                "other".to_string(),
+            ],
         });
 
         // The Hot-Swap
