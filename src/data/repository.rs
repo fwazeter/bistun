@@ -26,8 +26,53 @@
 
 use crate::core::resolver::bcp47::LmsError;
 use crate::data::store::{LocaleProfile, RegistryStore};
-use crate::models::traits::{Direction, MorphType, SegType};
 use crate::security::verifier;
+
+/// The hardcoded WORM snapshot (Simulating a disk read for v0.8.0)
+const SIMULATED_WORM_JSON: &str = r#"
+[
+  {
+    "id": "en-US",
+    "morph": "FUSIONAL",
+    "base_seg": "SPACE",
+    "alt_seg": null,
+    "direction": "LTR",
+    "has_bidi": false,
+    "requires_shaping": false,
+    "plurals": ["one", "other"]
+  },
+  {
+    "id": "ar-EG",
+    "morph": "TEMPLATIC",
+    "base_seg": "SPACE",
+    "alt_seg": null,
+    "direction": "RTL",
+    "has_bidi": true,
+    "requires_shaping": true,
+    "plurals": ["zero", "one", "two", "few", "many", "other"]
+  },
+  {
+    "id": "th-TH",
+    "morph": "ISOLATING",
+    "base_seg": "DICTIONARY",
+    "alt_seg": null,
+    "direction": "LTR",
+    "has_bidi": false,
+    "requires_shaping": true,
+    "plurals": ["other"]
+  },
+  {
+    "id": "zh-Hant",
+    "morph": "ISOLATING",
+    "base_seg": "CHARACTER",
+    "alt_seg": null,
+    "direction": "TTB",
+    "has_bidi": false,
+    "requires_shaping": false,
+    "plurals": ["other"]
+  }
+]
+"#;
 
 /// Hydrates a fresh `RegistryStore` from static sources.
 ///
@@ -35,8 +80,8 @@ use crate::security::verifier;
 ///
 /// # Logic Trace (Internal)
 /// 1. **Security Gate**: Read the raw disk payload and verify its cryptographic signature.
-/// 2. **Instantiation**: Create a completely isolated, fresh `RegistryStore`.
-/// 3. **Hydration**: [\STUB\] Inflate the known golden sets into the memory pool.
+/// 2. **Deserialization**: Parse the JSON WORM payload into a vector of `LocaleProfile` objects.
+/// 3. **Instantiation**: Create a completely isolated, fresh `RegistryStore`.
 /// 4. **Return**: Yield the hydrated store to be hot-swapped into the active state.
 ///
 /// # Examples
@@ -49,59 +94,20 @@ use crate::security::verifier;
 pub fn hydrate_snapshot() -> Result<RegistryStore, LmsError> {
     // 1. Security Gate [Ref: 006-LMS-SEC]
     // In Phase 8, this will be `fs::read_to_string` for both the JSON and the `.sig` file.
-    let simulated_payload = "{ ... }";
     let simulated_signature = "valid-lms-signature";
+    verifier::verify_snapshot(SIMULATED_WORM_JSON, simulated_signature)?;
 
-    verifier::verify_snapshot(simulated_payload, simulated_signature)?;
+    // 2. Deserialization
+    let profiles: Vec<LocaleProfile> = serde_json::from_str(SIMULATED_WORM_JSON)
+        .map_err(|e| LmsError::SecurityFault(format!("Failed to parse WORM JSON: {}", e)))?;
 
-    // 2. Instantiation
+    // 3. Instantiation
     let mut store = RegistryStore::new();
 
     // [STUB]: Phase 8 will replace this with `serde_json::from_reader(File::open("snapshot.json"))`
-
-    // 3. Hydration STUB English (System Default Fallback per [012-LMS-ENG])
-    store.insert_stub(LocaleProfile {
-        id: "en-US".to_string(),
-        morph: MorphType::FUSIONAL,
-        base_seg: SegType::SPACE,
-        alt_seg: None,
-        direction: Direction::LTR,
-        has_bidi: false,
-        requires_shaping: false,
-    });
-
-    // Arabic
-    store.insert_stub(LocaleProfile {
-        id: "ar-EG".to_string(),
-        morph: MorphType::TEMPLATIC,
-        base_seg: SegType::SPACE,
-        alt_seg: None,
-        direction: Direction::RTL,
-        has_bidi: true,
-        requires_shaping: true,
-    });
-
-    // Thai
-    store.insert_stub(LocaleProfile {
-        id: "th-TH".to_string(),
-        morph: MorphType::ISOLATING,
-        base_seg: SegType::DICTIONARY,
-        alt_seg: None,
-        direction: Direction::LTR,
-        has_bidi: false,
-        requires_shaping: true,
-    });
-
-    // Traditional Chinese
-    store.insert_stub(LocaleProfile {
-        id: "zh-Hant".to_string(),
-        morph: MorphType::ISOLATING,
-        base_seg: SegType::CHARACTER,
-        alt_seg: None,
-        direction: Direction::TTB,
-        has_bidi: false,
-        requires_shaping: false,
-    });
+    for profile in profiles {
+        store.insert_stub(profile);
+    }
 
     // 4. Return
     Ok(store)

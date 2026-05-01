@@ -26,11 +26,12 @@
 
 use crate::models::traits::{Direction, MorphType, SegType};
 use hashbrown::HashMap;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// An aggregated representation of a locale's Typological and Orthographic rules.
 /// Kept immutable to allow safe, lock-free reading across threads.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LocaleProfile {
     pub id: String,
     pub morph: MorphType,
@@ -39,6 +40,7 @@ pub struct LocaleProfile {
     pub direction: Direction,
     pub has_bidi: bool,
     pub requires_shaping: bool,
+    pub plurals: Vec<String>,
 }
 
 /// The high-performance, in-memory data store for linguistic profiles.
@@ -103,6 +105,7 @@ mod tests {
             direction: Direction::LTR,
             has_bidi: false,
             requires_shaping: true,
+            plurals: vec!["other".to_string()],
         });
         store
     }
