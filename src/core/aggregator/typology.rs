@@ -16,6 +16,7 @@
 
 //! # Typological Aggregator
 //! Ref: [008-LMS-TYPOLOGY-AGGREGATOR]
+//! Location: `src/core/aggregator/typology.rs`
 //!
 //! **Why**: This module serves as Phase 2 (Aggregate) of the pipeline. It maps a resolved canonical locale to its core Typological traits, applying High-Water Mark logic for complex scripts.
 //! **Impact**: If this module fails, the `CapabilityManifest` will lack foundational parsing traits, causing downstream NLP engines to crash or behave unpredictably.
@@ -35,18 +36,37 @@ use std::cmp;
 /// Time: O(1) map insertions | Space: O(1) (In-place mutation)
 ///
 /// # Logic Trace (Internal)
-/// 1. **Ingestion**: Accept a mutable `manifest` and the dynamic Flyweight `profile`.
-/// 2. **High-Water Mark Aggregation**: If an alternative segmentation strategy exists, compute the strict maximum using standard library `cmp::max`.
-/// 3. **Manifest Hydration**: Insert the resolved `MorphType` and `SegType` directly into the manifest's trait dictionary.
-/// 4. **Return**: Yield success.
+/// 1. Compute the High-Water Mark segmentation strategy using the strict maximum of `base_seg` and `alt_seg`.
+/// 2. Hydrate the manifest's trait dictionary with the resolved `MorphType`.
+/// 3. Hydrate the manifest's trait dictionary with the resolved `SegType`.
+/// 4. Yield successful completion.
 ///
-/// # Errors
-/// * Designed to return `Result` to conform to the pipeline standard, though currently infallible since the profile guarantees data presence.
+/// # Examples
+/// ```rust
+///  let mut manifest = CapabilityManifest::new("ja-JP".to_string());
+///  aggregate(&mut manifest, &profile).unwrap();
+/// ```
+///
+/// # Arguments
+/// * `manifest` (&mut CapabilityManifest): The mutable DTO being hydrated through the Phase 2 pipeline.
+/// * `profile` (&LocaleProfile): The read-only Flyweight profile containing the baseline typological defaults.
+///
+/// # Returns
+/// * `Result<(), LmsError>`: Returns `Ok(())` upon successful hydration of the manifest.
+///
+/// # Golden I/O
+/// * **Input**: `manifest`, `profile` with `base_seg: CHARACTER`, `alt_seg: Some(DICTIONARY)`
+/// * **Output**: `Ok(())` (Manifest updated with `SegmentationStrategy: DICTIONARY`)
+///
+/// # Errors, Panics, & Safety
+/// * **Errors**: Conforms to pipeline signature returning `Result`, but currently infallible since the profile guarantees data presence.
+/// * **Panics**: None.
+/// * **Safety**: Safe synchronous execution with zero heap allocations.
 pub fn aggregate(
     manifest: &mut CapabilityManifest,
     profile: &LocaleProfile,
 ) -> Result<(), LmsError> {
-    // 1 & 2. High-Water Mark Aggregation [Ref: 008-LMS-TYPOLOGY-AGGREGATOR]
+    // [STEP 1]: Compute the High-Water Mark segmentation strategy.
     // If an alternative segmentation strategy exists for this locale profile,
     // we enforce the maximum complexity to ensure safety in the rendering engine.
     let final_seg = match profile.alt_seg {
@@ -54,12 +74,13 @@ pub fn aggregate(
         None => profile.base_seg,
     };
 
-    // 3. Manifest Hydration
+    // [STEP 2]: Hydrate the manifest with MorphType.
     manifest.traits.insert(TraitKey::MorphologyType, TraitValue::MorphType(profile.morph));
 
+    // [STEP 3]: Hydrate the manifest with SegType.
     manifest.traits.insert(TraitKey::SegmentationStrategy, TraitValue::SegType(final_seg));
 
-    // 4. Return Success
+    // [STEP 4]: Return Success.
     Ok(())
 }
 
@@ -89,14 +110,14 @@ mod tests {
     #[test]
     fn test_aggregate_standard_profile() {
         // [Logic Trace Mapping]
-        // 1. Setup: Create manifest and a mock profile with standard traits (e.g., Templatic/Space).
-        // 2. Execute: Run aggregation.
-        // 3. Assert: Verify traits are inserted dynamically without hardcoded ID lookups.
+        // [STEP 1]: Setup: Create manifest and a mock profile with standard traits (e.g., Templatic/Space).
         let mut manifest = CapabilityManifest::new("ar-EG".to_string());
         let profile = create_mock_profile(MorphType::TEMPLATIC, SegType::SPACE, None);
 
+        // [STEP 2]: Execute: Run aggregation.
         assert!(aggregate(&mut manifest, &profile).is_ok());
 
+        // [STEP 3]: Assert: Verify traits are inserted dynamically without hardcoded ID lookups.
         let morph = manifest.traits.get(&TraitKey::MorphologyType);
         assert_eq!(morph, Some(&TraitValue::MorphType(MorphType::TEMPLATIC)));
 
@@ -107,9 +128,7 @@ mod tests {
     #[test]
     fn test_aggregate_high_water_mark() {
         // [Logic Trace Mapping]
-        // 1. Setup: Create manifest and a mock profile representing a multi-script locale.
-        // 2. Execute: Run aggregation.
-        // 3. Assert: Verify DICTIONARY overrides CHARACTER due to the cmp::max High-Water Mark rules.
+        // [STEP 1]: Setup: Create manifest and a mock profile representing a multi-script locale.
         let mut manifest = CapabilityManifest::new("ja-JP".to_string());
 
         let profile = create_mock_profile(
@@ -118,8 +137,10 @@ mod tests {
             Some(SegType::DICTIONARY), // The more complex script override
         );
 
+        // [STEP 2]: Execute: Run aggregation.
         assert!(aggregate(&mut manifest, &profile).is_ok());
 
+        // [STEP 3]: Assert: Verify DICTIONARY overrides CHARACTER due to the cmp::max High-Water Mark rules.
         let seg = manifest.traits.get(&TraitKey::SegmentationStrategy);
         assert_eq!(seg, Some(&TraitValue::SegType(SegType::DICTIONARY)));
     }

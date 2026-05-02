@@ -16,6 +16,7 @@
 
 //! # The Linguistic Manager (SDK Orchestrator)
 //! Ref: [001-LMS-CORE], [010-LMS-MEM]
+//! Location: `src/manager.rs`
 //!
 //! **Why**: This module serves as the primary SDK interface for external consumers. It abstracts away the complex 5-phase resolution pipeline and manages the thread-safe dynamic memory pool.
 //! **Impact**: If this module fails, external services cannot interface with the capability engine or will fail to boot due to hydration errors.
@@ -26,7 +27,7 @@
 
 use crate::core::pipeline::generate_manifest;
 use crate::core::resolver::bcp47::LmsError;
-use crate::data::repository::hydrate_snapshot;
+use crate::data::repository::{SimulatedSnapshotProvider, hydrate_snapshot};
 use crate::data::swap::RegistryState;
 use crate::models::manifest::{CapabilityManifest, TraitValue};
 use crate::models::traits::{Direction, MorphType, SegType, TraitKey};
@@ -62,27 +63,55 @@ impl Default for LinguisticManager {
 impl LinguisticManager {
     /// Initializes a new instance and attempts to hydrate the WORM snapshot.
     ///
+    /// Time: O(M) hydration | Space: O(M) memory pool allocation
+    ///
     /// # Logic Trace (Internal)
     /// 1. Instantiates a default `RegistryState` and sets status to `Bootstrapping`.
-    /// 2. Triggers the background repository hydrator (`hydrate_snapshot`).
-    /// 3. If hydration succeeds, hot-swaps the active memory pointer and sets status to `Ready`.
-    /// 4. If hydration fails, sets status to `Degraded` (activating the Circuit Breaker).
+    /// 2. Initializes the `SimulatedSnapshotProvider`.
+    /// 3. Triggers the repository hydrator with the provider.
+    /// 4. On success, hot-swaps the registry and sets status to `Ready`.
+    /// 5. On failure, activates Circuit Breaker mode (`Degraded`).
+    ///
+    /// # Arguments
+    /// * None.
+    ///
+    /// # Returns
+    /// * `Self`: A prepared manager instance.
+    ///
+    /// # Golden I/O
+    /// * **Input**: `()`
+    /// * **Output**: `LinguisticManager { status: Ready, ... }`
+    ///
+    /// # Errors, Panics, & Safety
+    /// * **Errors**: Internal hydration errors are caught to prevent boot failure.
+    /// * **Panics**: None.
+    /// * **Safety**: Thread-safe initialization.
     pub fn new() -> Self {
+        // [STEP 1]: Initialize empty state.
         let state = RegistryState::new();
+        // [STEP 2]: Setup default provider.
+        let provider = SimulatedSnapshotProvider::new();
 
-        // Hydrate from WORM repository on boot
-        let status = match hydrate_snapshot() {
+        // [STEP 3]: Attempt hydration.
+        let status = match hydrate_snapshot(&provider) {
             Ok(store) => {
+                // [STEP 4]: Perform atomic hot-swap.
                 state.swap_registry(store);
                 SdkState::Ready
             }
-            Err(_) => SdkState::Degraded,
+            Err(_) => {
+                // [STEP 5]: Fail-safe transition.
+                SdkState::Degraded
+            }
         };
 
         Self { state, status }
     }
 
     /// Returns the current health status of the SDK.
+    ///
+    /// # Returns
+    /// * `SdkState`: Current operational readiness.
     pub fn status(&self) -> SdkState {
         self.status
     }
@@ -92,23 +121,47 @@ impl LinguisticManager {
     /// Time: O(N) based on tag truncation length | Space: O(1) beyond returned map allocations
     ///
     /// # Logic Trace (Internal)
-    /// 1. **Circuit Breaker Check**: If `status` is `Degraded`, bypass the pipeline entirely and yield the hardcoded fallback manifest.
-    /// 2. **Delegation**: If `Ready`, hand the tag and internal dynamic state down to the `pipeline::generate_manifest` engine.
-    /// 3. **Return**: Yield the generated DTO or bubble up the architectural `LmsError`.
+    /// 1. Check health status; if `Degraded`, yield the hardcoded fallback.
+    /// 2. Delegate valid requests to the 5-Phase pipeline.
+    /// 3. Return the generated manifest or bubble up architectural errors.
+    ///
+    /// # Arguments
+    /// * `tag` (&str): The BCP 47 string requested by the client.
+    ///
+    /// # Returns
+    /// * `Result<CapabilityManifest, LmsError>`: The resolved capability payload.
+    ///
+    /// # Golden I/O
+    /// * **Input**: `"ar-EG"`
+    /// * **Output**: `Ok(CapabilityManifest { resolved_locale: "ar-EG", .. })`
+    ///
+    /// # Errors, Panics, & Safety
+    /// * **Errors**: Returns `LmsError` variants from Phase 1-4.
+    /// * **Panics**: None.
+    /// * **Safety**: Lock-free read access for active requests.
     pub fn resolve_capabilities(&self, tag: &str) -> Result<CapabilityManifest, LmsError> {
+        // [STEP 1]: Circuit Breaker Check.
         if self.status == SdkState::Degraded {
             return Ok(Self::generate_circuit_breaker_manifest());
         }
 
+        // [STEP 2] & [STEP 3]: Pipeline Delegation.
         generate_manifest(tag, &self.state)
     }
 
     /// Generates a guaranteed-safe fallback manifest when the memory pool is unreachable.
     ///
     /// Time: O(1) | Space: O(1)
+    ///
+    /// # Logic Trace (Internal)
+    /// 1. Instantiate a default "en-US" manifest.
+    /// 2. Inject Tier 3 baseline traits.
+    /// 3. Inject Circuit Breaker telemetry metadata.
     fn generate_circuit_breaker_manifest() -> CapabilityManifest {
+        // [STEP 1]: Instantiate en-US.
         let mut manifest = CapabilityManifest::new("en-US".to_string());
 
+        // [STEP 2]: Inject traits.
         manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(Direction::LTR));
         manifest.traits.insert(TraitKey::HasBidiElements, TraitValue::Boolean(false));
         manifest.traits.insert(TraitKey::RequiresShaping, TraitValue::Boolean(false));
@@ -117,6 +170,7 @@ impl LinguisticManager {
             .traits
             .insert(TraitKey::MorphologyType, TraitValue::MorphType(MorphType::FUSIONAL));
 
+        // [STEP 3]: Inject fallback metadata.
         manifest.metadata.insert("registry_version".to_string(), "CIRCUIT_BREAKER".to_string());
         manifest.metadata.insert("resolution_path".to_string(), "DEGRADED_FALLBACK".to_string());
         manifest.metadata.insert("resolution_time_ms".to_string(), "0.0000".to_string());
@@ -131,15 +185,22 @@ mod tests {
 
     #[test]
     fn test_manager_boots_into_ready_state() {
+        // [Logic Trace Mapping]
+        // [STEP 1]: Instantiate manager.
         let manager = LinguisticManager::new();
+        // [STEP 2]: Assert readiness.
         assert_eq!(manager.status(), SdkState::Ready);
     }
 
     #[test]
     fn test_manager_delegates_to_dynamic_pipeline() {
+        // [Logic Trace Mapping]
+        // [STEP 1]: Setup manager.
         let manager = LinguisticManager::new();
+        // [STEP 2]: Execute resolution.
         let manifest = manager.resolve_capabilities("th-TH").expect("SDK delegation failed");
 
+        // [STEP 3]: Assert hydration.
         assert_eq!(manifest.resolved_locale, "th-TH");
         assert!(!manifest.traits.is_empty());
     }
@@ -147,14 +208,14 @@ mod tests {
     #[test]
     fn test_circuit_breaker_intercepts_requests() {
         // [Logic Trace Mapping]
-        // 1. Setup: Instantiate a manager and manually force it into a Degraded state to simulate hydration failure.
-        // 2. Execute: Request a valid locale ("ar-EG").
-        // 3. Assert: Verify the Circuit Breaker intercepts the request and returns the safe "en-US" fallback instead.
+        // [STEP 1]: Setup: Instantiate and force Degraded state.
         let mut manager = LinguisticManager::new();
-        manager.status = SdkState::Degraded; // Force Degraded state
+        manager.status = SdkState::Degraded;
 
+        // [STEP 2]: Execute: Request "ar-EG".
         let manifest = manager.resolve_capabilities("ar-EG").expect("Circuit breaker failed");
 
+        // [STEP 3]: Assert: Verify fallback to en-US.
         assert_eq!(manifest.resolved_locale, "en-US");
         assert_eq!(manifest.metadata.get("registry_version").unwrap(), "CIRCUIT_BREAKER");
     }

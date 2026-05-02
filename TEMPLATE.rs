@@ -16,6 +16,7 @@
 
 //! # [MODULE NAME]
 //! Ref: [[BLUEPRINT-ID]]
+//! Location: `[[FILE-PATH]]`
 //!
 //! **Why**: [2-sentence explanation of existence and role in the 5-phase pipeline].
 //! **Impact**: [Description of what system functionality fails if this module is compromised].
@@ -40,12 +41,20 @@ use crate::models::{CapabilityManifest, LmsError};
 /// // [Executable Doctest following LMS-TEST standards]
 /// ```
 ///
+/// # Arguments
+/// * `[param_name]` ([type]): [Narrative explanation of its role in the Linguistic DNA model].
+///
+/// # Returns
+/// * `Result<[Output], LmsError>`: [Semantic explanation of the output and its role in the resolution pipeline].
+///
 /// # Golden I/O
 /// * **Input**: [Most common real-world input]
 /// * **Output**: [Expected Result]
 ///
-/// # Errors
-/// * Returns [`LmsError::Variant`] if [Condition].
+/// # Errors, Panics, & Safety
+/// * **Errors**: List all specific [`LmsError`] variants this function can return.
+/// * **Panics**: Document edge cases that result in a process abort.
+/// * **Safety**: If the function is `unsafe`, document the invariants the caller must uphold.
 ///
 /// # Side Effects
 /// * [e.g., Records telemetry to SLI sinks per 007-LMS-OPS].

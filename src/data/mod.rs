@@ -14,13 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! # Memory Management & Persistence
+//! # Memory Management & Persistence Domain
 //! Ref: [010-LMS-MEM]
+//! Location: `src/data/mod.rs`
 //!
-//! **Why**: This module manages the in-memory cache and state for all linguistic data.
-//! **Impact**: If this module fails, the application will panic due to memory corruption or exhaust host memory via duplicate allocations.
+//! **Why**: This module manages the in-memory cache, state transitions, and WORM hydration for all linguistic data.
+//! **Impact**: If this module fails, the application will either serve stale data, panic due to lock poisoning, or exhaust host memory via redundant allocations.
+//!
+//! ### Glossary
+//! * **Atomic Hot-Swap**: The process of replacing the entire active registry in memory without blocking active requests.
+//! * **WORM (Write-Once, Read-Many)**: A persistence strategy where snapshots are treated as immutable once compiled.
 
+/// Offline build tools and ingestion logic.
 pub mod compiler;
+
+/// Retrieval and transport of WORM snapshot payloads.
+pub mod providers;
+
+/// Orchestration of registry hydration and compilation.
 pub mod repository;
+
+/// In-memory Flyweight pools for locale definitions.
 pub mod store;
+
+/// Thread-safe concurrency management and hot-swap logic.
 pub mod swap;

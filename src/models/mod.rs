@@ -16,18 +16,19 @@
 
 //! # Shared Data Models (DTOs)
 //! Ref: [011-LMS-DTO]
+//! Location: `src/models/mod.rs`
 //!
-//! **Why**: This module serves as the central hub for the system's Data Transfer Objects (DTOs) and shared vocabulary.
-//! **Impact**: It defines the "Contract Layer" of the service; any breaking changes here will propagate to all consuming sidecars and SDKs.
+//! **Why**: This module serves as the central hub for the system's Data Transfer Objects (DTOs) and shared vocabulary. It flattens the internal module hierarchy for cleaner public API consumption.
+//! **Impact**: It defines the "Contract Layer" of the service; any breaking changes here will propagate to all consuming sidecars and SDKs, potentially breaking serialization logic.
 //!
 //! ### Glossary
 //! * **Re-export**: A technique to provide a more ergonomic API by exposing items from submodules at the root level.
-//! * **Flattening**: Reducing the depth of the module path required to access a type.
+//! * **Flattening**: Reducing the depth of the module path required to access a type, making the API more predictable[cite: 1060].
 
 pub mod manifest;
 pub mod traits;
 
-// Re-export core DTO for ergonomic API usage
+// Re-export core DTO for ergonomic API usage [cite: 3367]
 pub use manifest::{CapabilityManifest, TraitValue};
 
 // Re-export the shared vocabulary

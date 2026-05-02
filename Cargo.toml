@@ -18,12 +18,16 @@ serde_json = "1.0.149"
 
 # Performance: High-speed collections for Flyweight pools
 hashbrown = { version="0.17.0", features = ["serde"]}
+reqwest = { version="0.13.3", features = ["blocking"] }
+
 
 [dev-dependencies]
 # Required for hermetic mocking in isolation.
 mockall = "0.14.0"
 # Required for statistically significant performance verification
 criterion = { version = "0.8.2", features = ["html_reports"] }
+# Manages temporary files
+tempfile = "3.27.0"
 
 [[bench]]
 name = "performance_verification"
