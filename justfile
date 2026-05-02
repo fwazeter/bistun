@@ -38,10 +38,13 @@ bench-critical:
 
 # Initialize a new source file from the TEMPLATE
 # Usage: just new-module path/to/file.rs
+# Bootstraps a new Rust module and its directory-level README.md from standards
 new-module path:
-    mkdir -p $(dirname {{path}})
-    cp TEMPLATE.rs {{path}}
-    @echo "Initialized {{path}} from TEMPLATE.rs"
+    @mkdir -p $(dirname {{path}})
+    @cp docs/standards/TEMPLATE.rs {{path}}
+    @cp docs/standards/LMS-MODULE-README-TEMPLATE.md $(dirname {{path}})/README.md
+    @echo "[LMS-BOOTSTRAP]: Initialized {{path}} and $(dirname {{path}})/README.md"
+    @echo "[LMS-BOOTSTRAP]: REMINDER: Update Blueprint Ref and Location tags immediately."
 
 # Configure local git hooks to use the .githooks directory
 install-hooks:
