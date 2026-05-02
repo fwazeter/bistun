@@ -16,6 +16,7 @@
 
 //! # Traits Dictionary & Enumerations
 //! Ref: [011-LMS-DTO]
+//! Location: `src/models/traits.rs`
 //!
 //! **Why**: This module defines the shared vocabulary (TraitKeys and Enums) used to encapsulate the Typological and Orthographic properties of a locale.
 //! **Impact**: If this module is compromised, the `CapabilityManifest` cannot be constructed, breaking the capability engine and causing downstream services to fail.
@@ -28,11 +29,18 @@ use serde::{Deserialize, Serialize};
 
 /// The "Golden Set" of trait keys used in the CapabilityManifest.
 ///
-/// Time: O(1) | Space: O(1) (Stack allocated)
+/// Time: O(1) | Space: O(1)
 ///
 /// # Logic Trace (Internal)
 /// 1. Represents standard keys for the DTO `traits` map.
 /// 2. Utilizes `SCREAMING_SNAKE_CASE` serialization to match the DTO standard.
+///
+/// # Examples
+/// ```rust
+/// use bistun::models::traits::TraitKey;
+/// let key = TraitKey::SegmentationStrategy;
+/// assert_eq!(key, TraitKey::SegmentationStrategy);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TraitKey {
@@ -51,10 +59,13 @@ pub enum TraitKey {
 ///
 /// Time: O(1) | Space: O(1)
 ///
+/// # Logic Trace (Internal)
+/// 1. Represents the text layout requirements for a specific script.
+/// 2. Utilizes `UPPERCASE` serialization for cross-system compatibility.
+///
 /// # Examples
 /// ```rust
 /// use bistun::models::traits::Direction;
-///
 /// let dir = Direction::RTL;
 /// assert_eq!(dir, Direction::RTL);
 /// ```
@@ -68,14 +79,18 @@ pub enum Direction {
 }
 
 /// The boundary detection logic (Segmentation) required by the script.
+///
 /// Ordered from the lowest complexity to highest to support the High-Water Mark strategy.
 ///
 /// Time: O(1) | Space: O(1)
 ///
+/// # Logic Trace (Internal)
+/// 1. Ordered explicitly to allow `Ord` trait derivation to rank complexity automatically.
+/// 2. Permits `TraitAggregator` to resolve conflicts seamlessly.
+///
 /// # Examples
 /// ```rust
 /// use bistun::models::traits::SegType;
-///
 /// // Demonstrating High-Water Mark ordinal comparison
 /// assert!(SegType::DICTIONARY > SegType::SPACE);
 /// ```
@@ -92,10 +107,12 @@ pub enum SegType {
 ///
 /// Time: O(1) | Space: O(1)
 ///
+/// # Logic Trace (Internal)
+/// 1. Maps language identity to execution strategies for NLP operations (e.g., stemming).
+///
 /// # Examples
 /// ```rust
 /// use bistun::models::traits::MorphType;
-///
 /// let morph = MorphType::AGGLUTINATIVE;
 /// assert_eq!(morph, MorphType::AGGLUTINATIVE);
 /// ```
@@ -116,9 +133,9 @@ mod tests {
     #[test]
     fn test_segtype_high_water_mark_ordering() {
         // [Logic Trace Mapping]
-        // 1. Setup: Instantiate SegType variants.
-        // 2. Execute: Compare using Ord trait.
-        // 3. Assert: Verify DICTIONARY ranks higher than SPACE.
+        // [STEP 1]: Setup: Instantiate SegType variants via Ord trait checking.
+        // [STEP 2]: Execute: Compare using the derived Ord logic.
+        // [STEP 3]: Assert: Verify DICTIONARY ranks higher than SPACE, etc.
         assert!(SegType::DICTIONARY > SegType::SPACE);
         assert!(SegType::CHARACTER > SegType::SPACE);
         assert!(SegType::SPACE > SegType::NONE);
@@ -127,9 +144,9 @@ mod tests {
     #[test]
     fn test_traitkey_serialization() {
         // [Logic Trace Mapping]
-        // 1. Setup: Instantiate a TraitKey.
-        // 2. Execute: Serialize to JSON string.
-        // 3. Assert: Verify it serializes to SCREAMING_SNAKE_CASE per 011-LMS-DTO.
+        // [STEP 1]: Setup: Instantiate a TraitKey.
+        // [STEP 2]: Execute: Serialize to JSON string.
+        // [STEP 3]: Assert: Verify it serializes to SCREAMING_SNAKE_CASE per 011-LMS-DTO.
         let serialized = serde_json::to_string(&TraitKey::SegmentationStrategy).unwrap();
         assert_eq!(serialized, "\"SEGMENTATION_STRATEGY\"");
     }

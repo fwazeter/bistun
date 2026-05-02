@@ -16,6 +16,7 @@
 
 //! # Flyweight Definition Pools
 //! Ref: [010-LMS-MEM]
+//! Location: `src/data/store.rs`
 //!
 //! **Why**: This module implements an in-memory Flyweight cache to hold linguistic profiles. It guarantees that thousands of concurrent requests can read locale data without duplicating heap allocations.
 //! **Impact**: If this module is compromised, the pipeline will either fail to find necessary rendering traits or crash the server via Out-Of-Memory (OOM) heap exhaustion.
@@ -55,10 +56,35 @@ pub struct RegistryStore {
 impl RegistryStore {
     /// Initializes a new, empty RegistryStore.
     ///
+    /// Time: O(1) | Space: O(1) map allocations
+    ///
     /// # Logic Trace (Internal)
     /// 1. Instantiate the high-throughput `hashbrown` HashMap.
     /// 2. Return the empty store structure.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use bistun::data::store::RegistryStore;
+    /// let store = RegistryStore::new();
+    /// ```
+    ///
+    /// # Arguments
+    /// * None.
+    ///
+    /// # Returns
+    /// * `Self`: A newly instantiated, empty `RegistryStore`.
+    ///
+    /// # Golden I/O
+    /// * **Input**: `()`
+    /// * **Output**: `RegistryStore { pools: {} }`
+    ///
+    /// # Errors, Panics, & Safety
+    /// * **Errors**: None.
+    /// * **Panics**: None.
+    /// * **Safety**: Fully safe synchronous initialization.
     pub fn new() -> Self {
+        // [STEP 1]: Instantiate the HashMap.
+        // [STEP 2]: Return the empty structure.
         Self { pools: HashMap::new() }
     }
 
@@ -73,20 +99,57 @@ impl RegistryStore {
     ///
     /// # Examples
     /// ```rust
-    /// use bistun::data::store::{RegistryStore, LocaleProfile};
-    ///
+    /// use bistun::data::store::RegistryStore;
     /// let store = RegistryStore::new();
     /// assert!(store.get_profile("ar-EG").is_none());
     /// ```
+    ///
+    /// # Arguments
+    /// * `id` (&str): The canonical BCP 47 locale ID to retrieve.
+    ///
+    /// # Returns
+    /// * `Option<Arc<LocaleProfile>>`: An atomic reference to the immutable profile, or `None` if absent.
+    ///
+    /// # Golden I/O
+    /// * **Input**: `"ar-EG"`
+    /// * **Output**: `None` (if empty) or `Some(Arc<LocaleProfile { ... }>)`
+    ///
+    /// # Errors, Panics, & Safety
+    /// * **Errors**: None.
+    /// * **Panics**: None.
+    /// * **Safety**: Safe synchronous read access.
     pub fn get_profile(&self, id: &str) -> Option<Arc<LocaleProfile>> {
+        // [STEP 1]: Query the internal map.
+        // [STEP 2] & [STEP 3]: Clone the Arc if found, else return None.
         self.pools.get(id).cloned()
     }
 
-    /// [\STUB\]: Inserts a profile directly into the pool.
-    /// In Phase 8, this will be replaced by atomic pointer swaps from the `repository.rs` WORM loader.
+    /// Inserts a profile directly into the pool.
+    ///
+    /// Note: In Phase 8, this will be utilized by `repository.rs` during WORM hydration.
     ///
     /// Time: O(1) amortized | Space: O(1) reference insertion
+    ///
+    /// # Logic Trace (Internal)
+    /// 1. Wrap the owned `LocaleProfile` in an `Arc` to establish the Flyweight pattern.
+    /// 2. Insert the `Arc` into the `pools` map, keyed by the profile's ID.
+    ///
+    /// # Arguments
+    /// * `profile` (LocaleProfile): The fully hydrated linguistic profile.
+    ///
+    /// # Returns
+    /// * `()`: Side-effect function.
+    ///
+    /// # Golden I/O
+    /// * **Input**: `LocaleProfile { id: "th-TH", ... }`
+    /// * **Output**: `()`
+    ///
+    /// # Errors, Panics, & Safety
+    /// * **Errors**: None.
+    /// * **Panics**: None.
+    /// * **Safety**: Safe synchronous write access.
     pub fn insert_stub(&mut self, profile: LocaleProfile) {
+        // [STEP 1] & [STEP 2]: Wrap in Arc and insert.
         self.pools.insert(profile.id.clone(), Arc::new(profile));
     }
 }
@@ -102,7 +165,7 @@ mod tests {
             morph: MorphType::ISOLATING,
             base_seg: SegType::DICTIONARY,
             alt_seg: None,
-            direction: Direction::LTR,
+            direction: Direction::RTL,
             has_bidi: false,
             requires_shaping: true,
             plurals: vec!["other".to_string()],
@@ -113,14 +176,14 @@ mod tests {
     #[test]
     fn test_store_retrieves_flyweight_reference() {
         // [Logic Trace Mapping]
-        // 1. Setup: Initialize store with "th-TH" stub.
-        // 2. Execute: Retrieve the profile twice.
-        // 3. Assert: Verify both retrievals point to the same underlying data via Arc pointer math.
+        // [STEP 1]: Setup: Initialize store with "th-TH" stub.
         let store = setup_store_with_stub();
 
+        // [STEP 2]: Execute: Retrieve the profile twice.
         let req1 = store.get_profile("th-TH").expect("Profile should exist");
         let req2 = store.get_profile("th-TH").expect("Profile should exist");
 
+        // [STEP 3]: Assert: Verify both retrievals point to the same underlying data via Arc pointer math.
         assert_eq!(req1.id, "th-TH");
         assert_eq!(req1.morph, MorphType::ISOLATING);
 
@@ -131,10 +194,11 @@ mod tests {
     #[test]
     fn test_store_returns_none_for_missing_profile() {
         // [Logic Trace Mapping]
-        // 1. Setup: Initialize store.
-        // 2. Execute: Request an unknown locale.
-        // 3. Assert: Verify O(1) fallback to None without panicking.
+        // [STEP 1]: Setup: Initialize store.
         let store = setup_store_with_stub();
+
+        // [STEP 2]: Execute: Request an unknown locale.
+        // [STEP 3]: Assert: Verify O(1) fallback to None without panicking.
         assert!(store.get_profile("xx-YY").is_none());
     }
 }

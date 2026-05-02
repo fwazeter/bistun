@@ -16,6 +16,7 @@
 
 //! # Capability Manifest DTO
 //! Ref: [011-LMS-DTO]
+//! Location: `src/models/manifest.rs`
 //!
 //! **Why**: This module defines the primary Data Transfer Object (DTO) generated at the end of the 5-phase pipeline.
 //! **Impact**: If this module or its serialization is compromised, downstream software components will receive malformed rendering/processing instructions, causing widespread UI and algorithmic failures.
@@ -66,7 +67,7 @@ impl CapabilityManifest {
     /// # Logic Trace (Internal)
     /// 1. Ingest `resolved_locale` as the authoritative BCP 47 tag.
     /// 2. Initialize high-performance `hashbrown` HashMaps for traits and metadata.
-    /// 3. Return the instance.
+    /// 3. Return the populated instance.
     ///
     /// # Examples
     /// ```rust
@@ -75,7 +76,25 @@ impl CapabilityManifest {
     /// let manifest = CapabilityManifest::new("ar-EG".to_string());
     /// assert_eq!(manifest.resolved_locale, "ar-EG");
     /// ```
+    ///
+    /// # Arguments
+    /// * `resolved_locale` (String): The fully resolved and validated BCP 47 language tag (e.g., "ar-EG").
+    ///
+    /// # Returns
+    /// * `Self`: An empty CapabilityManifest, ready to be hydrated by the `TraitAggregator`.
+    ///
+    /// # Golden I/O
+    /// * **Input**: `"ar-EG".to_string()`
+    /// * **Output**: `CapabilityManifest { resolved_locale: "ar-EG", traits: {}, metadata: {} }`
+    ///
+    /// # Errors, Panics, & Safety
+    /// * **Errors**: None.
+    /// * **Panics**: None.
+    /// * **Safety**: Fully safe synchronous initialization.
     pub fn new(resolved_locale: String) -> Self {
+        // [STEP 1]: Ingest resolved_locale.
+        // [STEP 2]: Initialize hashbrown maps.
+        // [STEP 3]: Return the populated instance.
         Self { resolved_locale, traits: HashMap::new(), metadata: HashMap::new() }
     }
 }
@@ -87,10 +106,10 @@ mod tests {
     #[test]
     fn test_manifest_golden_serialization() {
         // [Logic Trace Mapping]
-        // 1. Setup: Instantiate a manifest for "ar-EG".
-        // 2. Execute: Populate traits reflecting Orthography (Direction) and Typology (Morphology).
-        // 3. Execute: Serialize the entire manifest to JSON.
-        // 4. Assert: Verify the untagged Serde serialization outputs exact JSON values, proving 011-LMS-DTO compliance.
+        // [STEP 1]: Setup: Instantiate a manifest for "ar-EG".
+        // [STEP 2]: Execute: Populate traits reflecting Orthography (Direction) and Typology (Morphology).
+        // [STEP 3]: Execute: Serialize the entire manifest to JSON.
+        // [STEP 4]: Assert: Verify the untagged Serde serialization outputs exact JSON values, proving 011-LMS-DTO compliance.
 
         let mut manifest = CapabilityManifest::new("ar-EG".to_string());
 
