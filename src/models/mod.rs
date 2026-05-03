@@ -25,6 +25,7 @@
 //! * **Re-export**: A technique to provide a more ergonomic API by exposing items from submodules at the root level.
 //! * **Flattening**: Reducing the depth of the module path required to access a type, making the API more predictable[cite: 1060].
 
+pub mod error;
 pub mod manifest;
 pub mod traits;
 
@@ -33,3 +34,6 @@ pub use manifest::{CapabilityManifest, TraitValue};
 
 // Re-export the shared vocabulary
 pub use traits::{Direction, MorphType, SegType, TraitKey};
+
+// Re-export Errors
+pub use error::LmsError;

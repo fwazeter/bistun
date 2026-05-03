@@ -49,6 +49,8 @@ pub mod security;
 /// Multi-tier runtime and compile-time integrity checks.
 pub mod validation;
 
+pub mod strategy;
+
 // --- Public Re-exports ---
 
 // These exports define the ergonomic SDK boundary for the service.
