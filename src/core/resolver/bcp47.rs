@@ -247,6 +247,7 @@ mod tests {
             has_bidi: false,
             requires_shaping: false,
             plurals: vec![],
+            required_resource: None,
         })
     }
 

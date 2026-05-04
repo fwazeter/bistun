@@ -33,7 +33,7 @@ pub mod traits;
 pub use manifest::{CapabilityManifest, TraitValue};
 
 // Re-export the shared vocabulary
-pub use traits::{Direction, MorphType, SegType, TraitKey};
+pub use traits::{Direction, MorphType, NormType, SegType, TraitKey, TransType};
 
 // Re-export Errors
 pub use error::LmsError;

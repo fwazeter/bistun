@@ -30,4 +30,3 @@ pub mod integrity;
 
 // Level A: Strict pre-persistence checks (Offline/Ingestion optimized)
 // Note: DNA validation is currently handled via the compiler linter to preserve the < 1ms budget.
-pub use crate::data::compiler::linter as dna;

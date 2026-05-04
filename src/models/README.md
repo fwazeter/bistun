@@ -63,15 +63,24 @@ fn main() {
 
 ### 2. The "Golden Path" Example
 ```rust
-use crate::models::{TraitKey, TraitValue, Direction, CapabilityManifest};
+use crate::models::{TraitKey, TraitValue, Direction, NormType, Transtype, CapabilityManifest};
 
 fn main() {
     let mut manifest = CapabilityManifest::new("ar-EG".to_string());
 
-    // Injecting Orthographic DNA into the manifest
+    // Injecting Orthographic and Normalization DNA into the manifest
     manifest.traits.insert(
-        TraitKey::PrimaryDirection, 
+        TraitKey::PrimaryDirection,
         TraitValue::Direction(Direction::RTL)
+    );
+    manifest.traits.insert(
+        TraitKey::NormalizationType,
+        TraitValue::NormType(NormType::NFC)
+    );
+    
+    manifest.traits.insert(
+        TraitKey::TransliterationType,
+        TraitValue::TransType(Transtype::ICU_TRANSFORM)
     );
 
     // Verify successful trait mapping

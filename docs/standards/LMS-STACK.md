@@ -80,6 +80,10 @@ Our internal "Truth Hierarchy" is built upon these international specifications.
 
 ---
 
+## VII. Modules
+
+* **icu_datagen** [ICU Datagen](https://crates.io/crates/icu_datagen)
+
 **Author**: Francis Xavier Wazeter IV  
 **License**: GNU GPL v3  
 **Date Created**: 04/30/2026  

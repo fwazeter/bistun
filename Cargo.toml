@@ -20,6 +20,10 @@ serde_json = "1.0.149"
 hashbrown = { version="0.17.0", features = ["serde"]}
 reqwest = { version="0.13.3", features = ["blocking"] }
 
+arc-swap = "1.9.1"
+
+# Thread safe singleton
+once_cell = "1.21.4"
 
 [dev-dependencies]
 # Required for hermetic mocking in isolation.
@@ -28,6 +32,11 @@ mockall = "0.14.0"
 criterion = { version = "0.8.2", features = ["html_reports"] }
 # Manages temporary files
 tempfile = "3.27.0"
+axum = "0.8.9"
+http = "1.4.0"
+tokio = { version = "1.52.2", features=["full"] }
+tracing-subscriber = "0.3.23"
+tower = "0.5.3"
 
 [[bench]]
 name = "performance_verification"
