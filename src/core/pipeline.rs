@@ -135,6 +135,7 @@ mod tests {
             has_bidi: true,
             requires_shaping: true,
             plurals: vec!["other".to_string()],
+            required_resource: None,
         })
     }
 

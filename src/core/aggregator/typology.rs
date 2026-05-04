@@ -80,6 +80,10 @@ pub fn aggregate(
     // [STEP 3]: Hydrate the manifest with SegType.
     manifest.traits.insert(TraitKey::SegmentationStrategy, TraitValue::SegType(final_seg));
 
+    if let Some(resource_id) = &profile.required_resource {
+        manifest.traits.insert(TraitKey::ResourceId, TraitValue::String(resource_id.clone()));
+    }
+
     // [STEP 4]: Return Success.
     Ok(())
 }
@@ -104,6 +108,7 @@ mod tests {
             has_bidi: false,
             requires_shaping: false,
             plurals: vec!["other".to_string()],
+            required_resource: None,
         }
     }
 

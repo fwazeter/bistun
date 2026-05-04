@@ -25,9 +25,6 @@
 //! * **Atomic Hot-Swap**: The process of replacing the entire active registry in memory without blocking active requests.
 //! * **WORM (Write-Once, Read-Many)**: A persistence strategy where snapshots are treated as immutable once compiled.
 
-/// Offline build tools and ingestion logic.
-pub mod compiler;
-
 /// Retrieval and transport of WORM snapshot payloads.
 pub mod providers;
 

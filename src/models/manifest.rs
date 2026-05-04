@@ -25,7 +25,7 @@
 //! * **Manifest**: An immutable, resolved package of linguistic instructions (traits) tailored to a specific runtime environment.
 //! * **Untagged Serialization**: A Serde configuration where enums are serialized as their underlying value rather than explicitly wrapping them in their variant name.
 
-use crate::models::traits::{Direction, MorphType, SegType, TraitKey};
+use crate::models::traits::{Direction, MorphType, NormType, SegType, TraitKey, TransType};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +42,8 @@ pub enum TraitValue {
     MorphType(MorphType),
     StringArray(Vec<String>),
     String(String),
+    NormType(NormType),
+    TransType(TransType),
 }
 
 /// The immutable CapabilityManifest DTO delivered to consuming services.
@@ -118,6 +120,13 @@ mod tests {
         manifest
             .traits
             .insert(TraitKey::MorphologyType, TraitValue::MorphType(MorphType::TEMPLATIC));
+        manifest.traits.insert(TraitKey::NormalizationType, TraitValue::NormType(NormType::NFC));
+        manifest
+            .traits
+            .insert(TraitKey::TransliterationType, TraitValue::TransType(TransType::ICU_TRANSFORM));
+
+        // Pass context-specific toggles via the metadata side-channel
+        manifest.metadata.insert("icu_strip_vowels".to_string(), "true".to_string());
 
         manifest.metadata.insert("registry_version".to_string(), "1.0.0".to_string());
 
@@ -128,6 +137,9 @@ mod tests {
         assert!(json_output.contains(r#""PRIMARY_DIRECTION":"RTL""#));
         assert!(json_output.contains(r#""HAS_BIDI_ELEMENTS":true"#));
         assert!(json_output.contains(r#""MORPHOLOGY_TYPE":"TEMPLATIC""#));
+        assert!(json_output.contains(r#""NORMALIZATION_TYPE":"NFC""#));
+        assert!(json_output.contains(r#""TRANSLITERATION_TYPE":"ICU_TRANSFORM""#));
+        assert!(json_output.contains(r#""icu_strip_vowels":"true""#));
         assert!(json_output.contains(r#""registry_version":"1.0.0""#));
     }
 }

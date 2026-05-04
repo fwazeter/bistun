@@ -32,6 +32,7 @@ use std::sync::Arc;
 
 /// An aggregated representation of a locale's Typological and Orthographic rules.
 /// Kept immutable to allow safe, lock-free reading across threads.
+/// `required_resource` points to the heavy binary asset required by a given script (e.g., "icu_arab")
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LocaleProfile {
     pub id: String,
@@ -42,6 +43,9 @@ pub struct LocaleProfile {
     pub has_bidi: bool,
     pub requires_shaping: bool,
     pub plurals: Vec<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub required_resource: Option<String>,
 }
 
 /// The high-performance, in-memory data store for linguistic profiles.
@@ -169,6 +173,7 @@ mod tests {
             has_bidi: false,
             requires_shaping: true,
             plurals: vec!["other".to_string()],
+            required_resource: Some("tri_thai".to_string()),
         });
         store
     }

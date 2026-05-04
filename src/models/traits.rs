@@ -53,6 +53,9 @@ pub enum TraitKey {
     UnicodePreloadBlocks,
     NumberingSystem,
     Calendar,
+    NormalizationType,
+    TransliterationType,
+    ResourceId,
 }
 
 /// The UI rendering direction derived from Orthographic mechanics.
@@ -124,6 +127,51 @@ pub enum MorphType {
     FUSIONAL,
     TEMPLATIC,
     POLYSYNTHETIC,
+}
+
+/// The required Unicode normalization form for the locale's script.
+///
+/// Time: O(1) | Space: O(1)
+///
+/// # Logic Trace (Internal)
+/// 1. Dictates whether text should be composed (NFC) or decomposed (NFD) prior to processing to ensure byte-sequence equivalence.
+///
+/// # Examples
+/// ```rust
+/// use bistun::models::traits::NormType;
+/// let norm = NormType::NFC;
+/// assert_eq!(norm, NormType::NFC);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum NormType {
+    NFC,
+    NFD,
+}
+
+/// The transliteration transformation required for the locale's script.
+///
+/// Time: O(1) | Space: O(1)
+///
+/// # Logic Trace (Internal)
+/// 1. Dictates whether a script requires mapping to a Latin equivalent (Romanization) to facilitate cross-lingual search and indexing.
+///
+/// # Examples
+/// ```rust
+/// use bistun::models::traits::TransType;
+/// let trans = TransType::ICU_TRANSFORM;
+/// assert_eq!(trans, TransType::ICU_TRANSFORM);
+/// ```
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum TransType {
+    /// No transliteration required (e.g., native Latin scripts).
+    NONE,
+    /// Simple deterministic mapping to Latin characters.
+    ROMANIZATION,
+    /// Utilizes the pre-compiled ICU4X data provider for context-aware, script-specific transliteration (e.g., Arabic Tashkeel stripping, Hebrew Sofit mapping).
+    ICU_TRANSFORM,
 }
 
 #[cfg(test)]

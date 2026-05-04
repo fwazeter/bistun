@@ -25,3 +25,5 @@ rustc-ice-*.txt
 
 # test file for data dumps
 snapshot.json
+
+data/data
