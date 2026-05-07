@@ -26,6 +26,7 @@
 //! * **Linguistic DNA**: The core set of typological and orthographic traits that define a language's mechanical behavior.
 //! * **Macrolanguage**: A BCP 47 tag that represents a cluster of closely related individual languages (e.g., 'no' for Norwegian).
 
+use bistun::data::repository::SimulatedSnapshotProvider;
 use bistun::manager::{LinguisticManager, SdkState};
 use bistun::models::manifest::TraitValue;
 use bistun::models::traits::{Direction, TraitKey};
@@ -40,28 +41,27 @@ use bistun::models::traits::{Direction, TraitKey};
 ///
 /// # Errors, Panics, & Safety
 /// * **Panics**: Panics if the manager fails to reach the `Ready` state during bootstrap.
-fn setup_manager() -> LinguisticManager {
-    // [STEP 1]: Instantiate the manager (triggers simulated WORM hydration).
+async fn setup_manager() -> LinguisticManager {
+    // [STEP 1]: Instantiate the manager.
     let manager = LinguisticManager::new();
 
-    // [STEP 2]: Assert operational readiness.
+    // [STEP 2]: Trigger async WORM hydration and await completion via Dependency Injection.
+    let provider = SimulatedSnapshotProvider::new();
+
+    // [FIX]: Pass the dynamic public key to the security gate
+    manager.initialize(&provider, &provider.public_key).await;
+
+    // [STEP 3]: Assert operational readiness.
     assert_eq!(manager.status(), SdkState::Ready, "Manager must boot successfully for QA tests.");
 
     manager
 }
 
-#[test]
-fn test_qa_01_hebrew_anomaly_bidi_without_shaping() {
-    // [Logic Trace Mapping]
-    // [STEP 1]: Setup: Instantiate manager.
-    let manager = setup_manager();
-
-    // [STEP 2]: Execute: Resolve Hebrew ('he').
-    // Note: This relies on the Simulation Provider containing the Hebrew stub.
+#[tokio::test]
+async fn test_qa_01_hebrew_anomaly_bidi_without_shaping() {
+    let manager = setup_manager().await;
     let manifest = manager.resolve_capabilities("he").expect("Failed to resolve Hebrew");
 
-    // [STEP 3]: Assert: Verify the DNA Linter exception for Hebrew holds.
-    // Hebrew is RTL, has Bidi, but does NOT require complex shaping.
     assert_eq!(
         manifest.traits.get(&TraitKey::PrimaryDirection),
         Some(&TraitValue::Direction(Direction::RTL))
@@ -70,50 +70,32 @@ fn test_qa_01_hebrew_anomaly_bidi_without_shaping() {
     assert_eq!(manifest.traits.get(&TraitKey::RequiresShaping), Some(&TraitValue::Boolean(false)));
 }
 
-#[test]
-fn test_qa_02_legacy_indonesian_tag() {
-    // [Logic Trace Mapping]
-    // [STEP 1]: Setup: Instantiate manager.
-    let manager = setup_manager();
-
-    // [STEP 2]: Execute: Pass legacy BCP 47 tag 'in'.
-    // [STEP 3]: Assert: Verify it resolves to the canonical 'id'.
+#[tokio::test]
+async fn test_qa_02_legacy_indonesian_tag() {
+    let manager = setup_manager().await;
     let manifest = manager.resolve_capabilities("in").expect("Failed to resolve legacy tag");
     assert_eq!(manifest.resolved_locale, "id");
 }
 
-#[test]
-fn test_qa_03_macrolanguage_norwegian() {
-    // [Logic Trace Mapping]
-    // [STEP 1]: Setup: Instantiate manager.
-    let manager = setup_manager();
-
-    // [STEP 2]: Execute: Resolve macrolanguage 'no'.
+#[tokio::test]
+async fn test_qa_03_macrolanguage_norwegian() {
+    let manager = setup_manager().await;
     let manifest = manager.resolve_capabilities("no").expect("Failed to resolve macrolanguage");
-
-    // [STEP 3]: Assert: Verify resolution to the canonical individual language 'nb'
     assert_eq!(manifest.resolved_locale, "nb");
 }
 
-#[test]
-fn test_qa_04_chinese_regional_script_variants() {
-    // [Logic Trace Mapping]
-    // [STEP 1]: Setup: Instantiate manager.
-    let manager = setup_manager();
-
-    // [STEP 2]: Execute: Resolve Taiwan ('zh-TW') implying Traditional script.
+#[tokio::test]
+async fn test_qa_04_chinese_regional_script_variants() {
+    let manager = setup_manager().await;
     let taiwan = manager.resolve_capabilities("zh-TW").expect("Failed zh-TW");
 
-    // [STEP 3]: Assert: Verify Top-To-Bottom (TTB) traits are assigned.
     assert_eq!(
         taiwan.traits.get(&TraitKey::PrimaryDirection),
         Some(&TraitValue::Direction(Direction::TTB))
     );
 
-    // [STEP 4]: Execute: Resolve Mainland ('zh-CN') implying Simplified script.
     let mainland = manager.resolve_capabilities("zh-CN").expect("Failed zh-CN");
 
-    // [STEP 5]: Assert: Verify regional LTR override for simplified scripts.
     assert_eq!(
         mainland.traits.get(&TraitKey::PrimaryDirection),
         Some(&TraitValue::Direction(Direction::LTR))

@@ -24,9 +24,8 @@
 //! ### Glossary
 //! * **Payload**: The combined data of the WORM JSON registry and its cryptographic JWS signature.
 
-use crate::core::resolver::bcp47::LmsError;
-use crate::data::repository::ISnapshotProvider;
-use std::fs;
+use crate::data::repository::{ISnapshotProvider, PayloadFuture};
+use crate::models::error::LmsError;
 
 // -----------------------------------------------------------------------------
 // File-Based Provider
@@ -74,19 +73,29 @@ impl FileSnapshotProvider {
 }
 
 impl ISnapshotProvider for FileSnapshotProvider {
-    fn fetch_payload(&self) -> Result<(String, String), LmsError> {
-        // [STEP 1]: Attempt to read the JSON file from disk.
-        let json_payload = fs::read_to_string(&self.json_path).map_err(|e| {
-            LmsError::IntegrityViolation(format!("Failed to read JSON snapshot: {}", e))
-        })?;
+    fn fetch_payload(&self) -> PayloadFuture<'_> {
+        Box::pin(async move {
+            // [STEP 1]: Attempt to read the JSON file from disk.
+            let json_payload = tokio::fs::read_to_string(&self.json_path).await.map_err(|e| {
+                LmsError::IntegrityViolation {
+                    pipeline_step: "Phase 0: WORM Hydration".to_string(),
+                    context: "FileSnapshotProvider".to_string(),
+                    reason: format!("Failed to read JSON snapshot: {}", e),
+                }
+            })?;
 
-        // [STEP 2]: Attempt to read the Signature file from disk.
-        let signature = fs::read_to_string(&self.sig_path).map_err(|e| {
-            LmsError::IntegrityViolation(format!("Failed to read snapshot signature: {}", e))
-        })?;
+            // [STEP 2]: Attempt to read the Signature file from disk.
+            let signature = tokio::fs::read_to_string(&self.sig_path).await.map_err(|e| {
+                LmsError::IntegrityViolation {
+                    pipeline_step: "Phase 0: WORM Hydration".to_string(),
+                    context: "FileSnapshotProvider".to_string(),
+                    reason: format!("Failed to read snapshot signature: {}", e),
+                }
+            })?;
 
-        // [STEP 3]: Return the paired payload.
-        Ok((json_payload, signature))
+            // [STEP 3]: Return the paired payload.
+            Ok((json_payload, signature))
+        })
     }
 }
 
@@ -134,31 +143,58 @@ impl HttpSnapshotProvider {
 }
 
 impl ISnapshotProvider for HttpSnapshotProvider {
-    fn fetch_payload(&self) -> Result<(String, String), LmsError> {
-        // Note: Relies on `reqwest::blocking` as a standard synchronous HTTP client.
+    fn fetch_payload(&self) -> PayloadFuture<'_> {
+        Box::pin(async move {
+            // [STEP 1]: Construct URLs
+            let json_url = format!("{}/snapshot.json", self.base_url);
+            let sig_url = format!("{}/snapshot.sig", self.base_url);
 
-        // [STEP 1]: Construct URLs
-        let json_url = format!("{}/snapshot.json", self.base_url);
-        let sig_url = format!("{}/snapshot.sig", self.base_url);
+            // [STEP 2]: Fetch JSON payload asynchronously
+            let json_resp = reqwest::get(&json_url)
+                .await
+                .map_err(|e| LmsError::IntegrityViolation {
+                    pipeline_step: "Phase 0: WORM Hydration".to_string(),
+                    context: "HttpSnapshotProvider".to_string(),
+                    reason: format!("HTTP request failed for JSON: {}", e),
+                })?
+                .error_for_status()
+                .map_err(|e| LmsError::IntegrityViolation {
+                    pipeline_step: "Phase 0: WORM Hydration".to_string(),
+                    context: "HttpSnapshotProvider".to_string(),
+                    reason: format!("HTTP status error for JSON: {}", e),
+                })?;
 
-        // [STEP 2]: Fetch JSON payload
-        let json_payload = reqwest::blocking::get(&json_url)
-            .and_then(|resp| resp.error_for_status())
-            .and_then(|resp| resp.text())
-            .map_err(|e| {
-                LmsError::IntegrityViolation(format!("HTTP fetch failed for JSON: {}", e))
+            let json_payload =
+                json_resp.text().await.map_err(|e| LmsError::IntegrityViolation {
+                    pipeline_step: "Phase 0: WORM Hydration".to_string(),
+                    context: "HttpSnapshotProvider".to_string(),
+                    reason: format!("Failed to extract JSON text: {}", e),
+                })?;
+
+            // [STEP 3]: Fetch Signature payload asynchronously
+            let sig_resp = reqwest::get(&sig_url)
+                .await
+                .map_err(|e| LmsError::IntegrityViolation {
+                    pipeline_step: "Phase 0: WORM Hydration".to_string(),
+                    context: "HttpSnapshotProvider".to_string(),
+                    reason: format!("HTTP request failed for Signature: {}", e),
+                })?
+                .error_for_status()
+                .map_err(|e| LmsError::IntegrityViolation {
+                    pipeline_step: "Phase 0: WORM Hydration".to_string(),
+                    context: "HttpSnapshotProvider".to_string(),
+                    reason: format!("HTTP status error for Signature: {}", e),
+                })?;
+
+            let signature = sig_resp.text().await.map_err(|e| LmsError::IntegrityViolation {
+                pipeline_step: "Phase 0: WORM Hydration".to_string(),
+                context: "HttpSnapshotProvider".to_string(),
+                reason: format!("Failed to extract Signature text: {}", e),
             })?;
 
-        // [STEP 3]: Fetch Signature payload
-        let signature = reqwest::blocking::get(&sig_url)
-            .and_then(|resp| resp.error_for_status())
-            .and_then(|resp| resp.text())
-            .map_err(|e| {
-                LmsError::IntegrityViolation(format!("HTTP fetch failed for Signature: {}", e))
-            })?;
-
-        // [STEP 4]: Return the paired payload.
-        Ok((json_payload, signature))
+            // [STEP 4]: Return the paired payload.
+            Ok((json_payload, signature))
+        })
     }
 }
 
@@ -168,43 +204,39 @@ mod tests {
     use std::io::Write;
     use tempfile::NamedTempFile;
 
-    #[test]
-    fn test_file_provider_fetches_payload() {
+    #[tokio::test] // NEW: Async test harness
+    async fn test_file_provider_fetches_payload() {
         // [Logic Trace Mapping]
         // [STEP 1]: Setup: Create a temporary file and write a valid JSON stub.
         let mut json_file = NamedTempFile::new().unwrap();
         let sig_file = NamedTempFile::new().unwrap();
 
-        // [FIX]: Doubled braces escape the format macro while satisfying Clippy.
-        // This ensures the literal is interpreted correctly by the compiler.
         writeln!(json_file, "[{{\"id\": \"ar-EG\"}}]").unwrap();
 
         let json_path = json_file.path().to_str().unwrap().to_string();
         let sig_path = sig_file.path().to_str().unwrap().to_string();
 
-        // [STEP 2]: Execute: Instantiate provider and fetch.
+        // [STEP 2]: Execute: Instantiate provider and await fetch.
         let provider = FileSnapshotProvider::new(json_path, sig_path);
-        let result = provider.fetch_payload();
+        let result = provider.fetch_payload().await;
 
         // [STEP 3]: Assert: Verify the payload was read correctly.
         assert!(result.is_ok());
         let (payload, _) = result.unwrap();
         assert!(payload.contains("ar-EG"));
     }
-    #[test]
-    fn test_file_provider_fails_gracefully_on_missing_file() {
+
+    #[tokio::test]
+    async fn test_file_provider_fails_gracefully_on_missing_file() {
         // [Logic Trace Mapping]
         // [STEP 1]: Setup: Point to non-existent files.
         let provider =
             FileSnapshotProvider::new("does_not_exist.json".into(), "missing.sig".into());
 
         // [STEP 2]: Execute: Attempt fetch.
-        let result = provider.fetch_payload();
+        let result = provider.fetch_payload().await;
 
         // [STEP 3]: Assert: Verify it returns an IntegrityViolation.
-        assert!(matches!(result, Err(LmsError::IntegrityViolation(_))));
+        assert!(matches!(result, Err(LmsError::IntegrityViolation { .. })));
     }
-
-    // Note: HttpSnapshotProvider testing is omitted here to preserve LMS-TEST hermeticity.
-    // Testing HTTP would require a library like `httpmock` or `mockito` to intercept calls.
 }

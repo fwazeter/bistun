@@ -25,8 +25,8 @@
 //! * **High-Water Mark**: An architectural strategy where the most computationally expensive requirement (e.g., Dictionary-based segmentation) overrides simpler requirements (e.g., Space-based).
 //! * **In-Place Mutation**: Modifying an object via mutable reference to prevent heap allocation overhead during the pipeline.
 
-use crate::core::resolver::bcp47::LmsError;
 use crate::data::store::LocaleProfile;
+use crate::models::error::LmsError;
 use crate::models::manifest::{CapabilityManifest, TraitValue};
 use crate::models::traits::TraitKey;
 use std::cmp;
@@ -56,7 +56,7 @@ use std::cmp;
 ///
 /// # Golden I/O
 /// * **Input**: `manifest`, `profile` with `base_seg: CHARACTER`, `alt_seg: Some(DICTIONARY)`
-/// * **Output**: `Ok(())` (Manifest updated with `SegmentationStrategy: DICTIONARY`)
+/// * **Output**: `Ok(())` (Manifest updated with Plurals, Unicode, Morph, Seg, Norm, and Trans)
 ///
 /// # Errors, Panics, & Safety
 /// * **Errors**: Conforms to pipeline signature returning `Result`, but currently infallible since the profile guarantees data presence.
@@ -66,6 +66,9 @@ pub fn aggregate(
     manifest: &mut CapabilityManifest,
     profile: &LocaleProfile,
 ) -> Result<(), LmsError> {
+    // ---------------------------------------------------------
+    // BLOCK 1: Structural & Typological Traits
+    // ---------------------------------------------------------
     // [STEP 1]: Compute the High-Water Mark segmentation strategy.
     // If an alternative segmentation strategy exists for this locale profile,
     // we enforce the maximum complexity to ensure safety in the rendering engine.
@@ -80,6 +83,30 @@ pub fn aggregate(
     // [STEP 3]: Hydrate the manifest with SegType.
     manifest.traits.insert(TraitKey::SegmentationStrategy, TraitValue::SegType(final_seg));
 
+    // ---------------------------------------------------------
+    // BLOCK 2: Grammatical Traits
+    // ---------------------------------------------------------
+    manifest
+        .traits
+        .insert(TraitKey::PluralCategories, TraitValue::StringArray(profile.plurals.clone()));
+
+    // ---------------------------------------------------------
+    // BLOCK 3: Encoding & Mechanics Traits
+    // ---------------------------------------------------------
+    manifest.traits.insert(
+        TraitKey::UnicodePreloadBlocks,
+        TraitValue::StringArray(profile.unicode_blocks.clone()),
+    );
+    manifest
+        .traits
+        .insert(TraitKey::NormalizationType, TraitValue::NormType(profile.normalization));
+    manifest
+        .traits
+        .insert(TraitKey::TransliterationType, TraitValue::TransType(profile.transliteration));
+
+    // ---------------------------------------------------------
+    // BLOCK 4: Resource Linkage
+    // ---------------------------------------------------------
     if let Some(resource_id) = &profile.required_resource {
         manifest.traits.insert(TraitKey::ResourceId, TraitValue::String(resource_id.clone()));
     }
@@ -91,7 +118,7 @@ pub fn aggregate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::traits::{Direction, MorphType, SegType};
+    use crate::models::traits::{Direction, MorphType, NormType, SegType, TransType};
 
     /// Internal helper to generate a mock Flyweight profile for hermetic testing.
     fn create_mock_profile(
@@ -107,45 +134,46 @@ mod tests {
             direction: Direction::LTR,
             has_bidi: false,
             requires_shaping: false,
-            plurals: vec!["other".to_string()],
+            plurals: vec!["one".to_string(), "other".to_string()],
+            unicode_blocks: vec!["Basic Latin".to_string()],
+            normalization: NormType::NFC,
+            transliteration: TransType::NONE,
             required_resource: None,
         }
     }
 
     #[test]
     fn test_aggregate_standard_profile() {
-        // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Create manifest and a mock profile with standard traits (e.g., Templatic/Space).
-        let mut manifest = CapabilityManifest::new("ar-EG".to_string());
-        let profile = create_mock_profile(MorphType::TEMPLATIC, SegType::SPACE, None);
+        let mut manifest = CapabilityManifest::new("en-US".to_string());
+        let profile = create_mock_profile(MorphType::FUSIONAL, SegType::SPACE, None);
 
-        // [STEP 2]: Execute: Run aggregation.
         assert!(aggregate(&mut manifest, &profile).is_ok());
 
-        // [STEP 3]: Assert: Verify traits are inserted dynamically without hardcoded ID lookups.
-        let morph = manifest.traits.get(&TraitKey::MorphologyType);
-        assert_eq!(morph, Some(&TraitValue::MorphType(MorphType::TEMPLATIC)));
-
-        let seg = manifest.traits.get(&TraitKey::SegmentationStrategy);
-        assert_eq!(seg, Some(&TraitValue::SegType(SegType::SPACE)));
+        assert_eq!(
+            manifest.traits.get(&TraitKey::MorphologyType),
+            Some(&TraitValue::MorphType(MorphType::FUSIONAL))
+        );
+        assert_eq!(
+            manifest.traits.get(&TraitKey::PluralCategories),
+            Some(&TraitValue::StringArray(vec!["one".to_string(), "other".to_string()]))
+        );
+        assert_eq!(
+            manifest.traits.get(&TraitKey::NormalizationType),
+            Some(&TraitValue::NormType(NormType::NFC))
+        );
     }
 
     #[test]
     fn test_aggregate_high_water_mark() {
-        // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Create manifest and a mock profile representing a multi-script locale.
         let mut manifest = CapabilityManifest::new("ja-JP".to_string());
-
         let profile = create_mock_profile(
             MorphType::AGGLUTINATIVE,
             SegType::CHARACTER,
-            Some(SegType::DICTIONARY), // The more complex script override
+            Some(SegType::DICTIONARY),
         );
 
-        // [STEP 2]: Execute: Run aggregation.
         assert!(aggregate(&mut manifest, &profile).is_ok());
 
-        // [STEP 3]: Assert: Verify DICTIONARY overrides CHARACTER due to the cmp::max High-Water Mark rules.
         let seg = manifest.traits.get(&TraitKey::SegmentationStrategy);
         assert_eq!(seg, Some(&TraitValue::SegType(SegType::DICTIONARY)));
     }

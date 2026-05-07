@@ -25,9 +25,15 @@
 //! * **Resolver**: A discrete operational unit in the fallback chain (e.g., ExactMatch, Truncation).
 //! * **Chain of Responsibility**: A behavioral design pattern where a request is passed along a chain of handlers until one processes it.
 
-pub mod bcp47;
+pub mod alias;
+pub mod exact;
+pub mod fallback;
+pub mod orchestrator;
+#[cfg(test)]
+pub mod test_utils;
+pub mod truncation; // Expose the test utilities ONLY during cargo test
 
-use crate::core::resolver::bcp47::LocaleEntry;
+use crate::core::resolver::orchestrator::LocaleEntry;
 use crate::data::swap::IRegistryState;
 
 /// The standard contract for all Taxonomic Resolvers in the pipeline.

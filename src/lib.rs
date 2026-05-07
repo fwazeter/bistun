@@ -57,4 +57,4 @@ pub use models::manifest::CapabilityManifest;
 
 // Note: To make the API ergonomic, we expose LmsError directly from the resolver layer
 // until we build out `src/models/error.rs` in Phase 6.
-pub use core::resolver::bcp47::LmsError;
+pub use models::error::LmsError;
