@@ -21,7 +21,7 @@
 //! **Why**: This module serves as Phase 4 (Integrity Check) of the pipeline. It asserts that the fully aggregated manifest contains logical, non-contradictory instructions.
 //! **Impact**: If this module fails to catch a contradiction (e.g., Bidi without Shaping), the downstream UI layout engine will likely panic or render unreadable text.
 
-use crate::core::resolver::bcp47::LmsError;
+use crate::models::error::LmsError;
 use crate::models::manifest::{CapabilityManifest, TraitValue};
 use crate::models::traits::TraitKey;
 
@@ -59,9 +59,11 @@ use crate::models::traits::TraitKey;
 pub fn verify(manifest: &CapabilityManifest) -> Result<(), LmsError> {
     // [STEP 1]: Data Presence
     if manifest.traits.is_empty() {
-        return Err(LmsError::IntegrityViolation(
-            "Manifest traits dictionary cannot be empty".to_string(),
-        ));
+        return Err(LmsError::IntegrityViolation {
+            pipeline_step: "Phase 4: Integrity Check".to_string(),
+            context: manifest.resolved_locale.clone(),
+            reason: "Manifest traits dictionary cannot be empty".to_string(),
+        });
     }
 
     // [STEP 2]: Mechanical Consistency
@@ -73,9 +75,11 @@ pub fn verify(manifest: &CapabilityManifest) -> Result<(), LmsError> {
     // [STEP 3]: Contradiction check with Anomaly Exception [Ref: 003-LMS-VAL]
     // Hebrew is Bidi-capable but does not strictly require complex shaping logic.
     if has_bidi && !requires_shaping && manifest.resolved_locale != "he" {
-        return Err(LmsError::IntegrityViolation(
-            "Bidirectional layouts inherently require shaping algorithms, but REQUIRES_SHAPING is false".to_string(),
-        ));
+        return Err(LmsError::IntegrityViolation {
+            pipeline_step: "Phase 4: Integrity Check".to_string(),
+            context: manifest.resolved_locale.clone(),
+            reason: "Bidirectional layouts inherently require shaping algorithms, but REQUIRES_SHAPING is false".to_string(),
+        });
     }
 
     // [STEP 3]: Return Success
@@ -108,7 +112,7 @@ mod tests {
         let err = verify(&manifest).unwrap_err();
 
         // [STEP 3]: Assert: It throws an IntegrityViolation.
-        assert!(matches!(err, LmsError::IntegrityViolation(_)));
+        assert!(matches!(err, LmsError::IntegrityViolation { .. }));
     }
 
     #[test]
@@ -123,6 +127,6 @@ mod tests {
         let err = verify(&manifest).unwrap_err();
 
         // [STEP 3]: Assert: It throws an IntegrityViolation.
-        assert!(matches!(err, LmsError::IntegrityViolation(_)));
+        assert!(matches!(err, LmsError::IntegrityViolation { .. }));
     }
 }

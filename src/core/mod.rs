@@ -36,3 +36,4 @@ pub mod pipeline;
 
 /// Phase 1: Resolves BCP 47 tags via the Chain of Responsibility.
 pub mod resolver;
+pub mod resource;

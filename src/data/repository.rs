@@ -21,177 +21,290 @@
 //! **Why**: This module compiles raw snapshot data into a highly optimized `RegistryStore` memory pool in the background, isolating heavy I/O from the critical execution path.
 //! **Impact**: If this module fails, the service boots with an empty database or cannot process updates, rendering the capability engine inert.
 //!
+//! ### Architectural Note: Asynchronous Traits and Thread Safety
+//! We explicitly avoid using the standard `async fn` syntax inside the `ISnapshotProvider` trait.
+//! While Rust supports Async Functions in Traits (AFIT), the compiler cannot natively guarantee
+//! that the returned `Future` is thread-safe (`Send`).
+//!
+//! Because the `LinguisticManager` passes these providers into detached `tokio::spawn` background
+//! workers, the Tokio runtime strictly demands `Send` futures so tasks can move between CPU cores.
+//! By returning a `Pin<Box<dyn Future + Send>>`, we manually enforce this thread-safety contract
+//! without needing to pull in heavy third-party macros like the `async-trait` crate.
+//!
 //! ### Glossary
 //! * **WORM**: Write-Once, Read-Many. The paradigm where registry snapshots are immutable once compiled.
 //! * **Hydration**: The process of reading static data and inflating it into operational memory structures.
 
-use crate::core::resolver::bcp47::LmsError;
-use crate::data::store::{LocaleProfile, RegistryStore};
+use crate::data::store::{LocaleProfile, RegistryMetadata, RegistryStore};
+use crate::models::error::LmsError;
 use crate::security::verifier;
+use hashbrown::HashMap;
+use serde::Deserialize;
+use std::future::Future;
+use std::pin::Pin;
+
+/// Type alias for the complex pinned future returned by providers to satisfy Clippy constraints.
+///
+/// Time: O(1) | Space: O(1)
+pub type PayloadFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<(String, String), LmsError>> + Send + 'a>>;
+
+/// The structure of the overarching WORM JSON payload.
+///
+/// Time: O(1) setup | Space: O(N) based on payload size during parsing
+#[derive(Deserialize)]
+struct WormPayload {
+    /// Authoritative build identity
+    metadata: RegistryMetadata,
+    /// Language DNA profiles
+    profiles: Vec<LocaleProfile>,
+    /// Tag mapping aliases
+    #[serde(default)]
+    aliases: HashMap<String, String>,
+}
 
 /// The hardcoded WORM snapshot fallback (used if snapshot.json is missing)
-/// Expanded to include necessary test locales for hermetic verification.
+/// Expanded to include necessary test locales and dynamic aliases.
 /// Ref: [012-LMS-ENG], [003-LMS-VAL]
-const SIMULATED_WORM_JSON: &str = r#"
-[
-  {
-    "id": "en-US",
-    "morph": "FUSIONAL",
-    "base_seg": "SPACE",
-    "alt_seg": null,
-    "direction": "LTR",
-    "has_bidi": false,
-    "requires_shaping": false,
-    "plurals": ["one", "other"]
+pub const SIMULATED_WORM_JSON: &str = r#"{
+  "metadata": {
+    "version": "v1.0.0-simulated",
+    "build_date": "2026-05-01T12:00:00Z",
+    "checksum": "a1b2c3d4e5f6g7h8i9j0"
   },
-  {
-    "id": "ar-EG",
-    "morph": "TEMPLATIC",
-    "base_seg": "SPACE",
-    "alt_seg": null,
-    "direction": "RTL",
-    "has_bidi": true,
-    "requires_shaping": true,
-    "plurals": ["zero", "one", "two", "few", "many", "other"]
+  "aliases": {
+    "in": "id",
+    "in-ID": "id",
+    "iw": "he",
+    "no": "nb",
+    "zh-TW": "zh-Hant",
+    "zh-CN": "zh-Hans"
   },
-  {
-    "id": "he",
-    "morph": "TEMPLATIC",
-    "base_seg": "SPACE",
-    "alt_seg": null,
-    "direction": "RTL",
-    "has_bidi": true,
-    "requires_shaping": false,
-    "plurals": ["one", "two", "many", "other"]
-  },
-  {
-    "id": "id",
-    "morph": "FUSIONAL",
-    "base_seg": "SPACE",
-    "alt_seg": null,
-    "direction": "LTR",
-    "has_bidi": false,
-    "requires_shaping": false,
-    "plurals": ["other"]
-  },
-  {
-    "id": "nb",
-    "morph": "FUSIONAL",
-    "base_seg": "SPACE",
-    "alt_seg": null,
-    "direction": "LTR",
-    "has_bidi": false,
-    "requires_shaping": false,
-    "plurals": ["one", "other"]
-  },
-  {
-    "id": "zh-Hant",
-    "morph": "ISOLATING",
-    "base_seg": "CHARACTER",
-    "alt_seg": null,
-    "direction": "TTB",
-    "has_bidi": false,
-    "requires_shaping": false,
-    "plurals": ["other"]
-  },
-  {
-    "id": "zh-Hans",
-    "morph": "ISOLATING",
-    "base_seg": "CHARACTER",
-    "alt_seg": null,
-    "direction": "LTR",
-    "has_bidi": false,
-    "requires_shaping": false,
-    "plurals": ["other"]
-  },
-  {
-    "id": "th-TH",
-    "morph": "ISOLATING",
-    "base_seg": "DICTIONARY",
-    "alt_seg": null,
-    "direction": "LTR",
-    "has_bidi": false,
-    "requires_shaping": true,
-    "plurals": ["other"]
-  }
-]
-"#;
+  "profiles": [
+    {
+      "id": "en-US",
+      "morph": "FUSIONAL",
+      "base_seg": "SPACE",
+      "alt_seg": null,
+      "direction": "LTR",
+      "has_bidi": false,
+      "requires_shaping": false,
+      "plurals": ["one", "other"],
+      "unicode_blocks": [],
+      "normalization": "NFC",
+      "transliteration": "NONE"
+    },
+    {
+      "id": "ar-EG",
+      "morph": "TEMPLATIC",
+      "base_seg": "SPACE",
+      "alt_seg": null,
+      "direction": "RTL",
+      "has_bidi": true,
+      "requires_shaping": true,
+      "plurals": ["zero", "one", "two", "few", "many", "other"],
+      "unicode_blocks": [],
+      "normalization": "NFC",
+      "transliteration": "NONE"
+    },
+    {
+      "id": "he",
+      "morph": "TEMPLATIC",
+      "base_seg": "SPACE",
+      "alt_seg": null,
+      "direction": "RTL",
+      "has_bidi": true,
+      "requires_shaping": false,
+      "plurals": ["one", "two", "many", "other"],
+      "unicode_blocks": [],
+      "normalization": "NFC",
+      "transliteration": "NONE"
+    },
+    {
+      "id": "id",
+      "morph": "FUSIONAL",
+      "base_seg": "SPACE",
+      "alt_seg": null,
+      "direction": "LTR",
+      "has_bidi": false,
+      "requires_shaping": false,
+      "plurals": ["other"],
+      "unicode_blocks": [],
+      "normalization": "NFC",
+      "transliteration": "NONE"
+    },
+    {
+      "id": "nb",
+      "morph": "FUSIONAL",
+      "base_seg": "SPACE",
+      "alt_seg": null,
+      "direction": "LTR",
+      "has_bidi": false,
+      "requires_shaping": false,
+      "plurals": ["one", "other"],
+      "unicode_blocks": [],
+      "normalization": "NFC",
+      "transliteration": "NONE"
+    },
+    {
+      "id": "zh-Hant",
+      "morph": "ISOLATING",
+      "base_seg": "CHARACTER",
+      "alt_seg": null,
+      "direction": "TTB",
+      "has_bidi": false,
+      "requires_shaping": false,
+      "plurals": ["other"],
+      "unicode_blocks": [],
+      "normalization": "NFC",
+      "transliteration": "NONE"
+    },
+    {
+      "id": "zh-Hans",
+      "morph": "ISOLATING",
+      "base_seg": "CHARACTER",
+      "alt_seg": null,
+      "direction": "LTR",
+      "has_bidi": false,
+      "requires_shaping": false,
+      "plurals": ["other"],
+      "unicode_blocks": [],
+      "normalization": "NFC",
+      "transliteration": "NONE"
+    },
+    {
+      "id": "th-TH",
+      "morph": "ISOLATING",
+      "base_seg": "DICTIONARY",
+      "alt_seg": null,
+      "direction": "LTR",
+      "has_bidi": false,
+      "requires_shaping": true,
+      "plurals": ["other"],
+      "unicode_blocks": [],
+      "normalization": "NFC",
+      "transliteration": "NONE"
+    }
+  ]
+}"#;
+
 /// Interface for retrieving the WORM payload, enabling Dependency Inversion.
 pub trait ISnapshotProvider: Send + Sync {
     /// Fetches the raw JSON payload and its cryptographic signature.
     ///
     /// # Returns
     /// * `Result<(String, String), LmsError>`: A tuple containing `(JSON_Payload, Signature)`.
-    fn fetch_payload(&self) -> Result<(String, String), LmsError>;
+    fn fetch_payload(&self) -> PayloadFuture<'_>;
 }
 
-/// A concrete implementation of the snapshot provider utilizing embedded seed data.
-#[derive(Default)]
-pub struct SimulatedSnapshotProvider;
+/// A concrete provider utilizing embedded seed data and a dynamically generated Ed25519 signature.
+/// Used primarily for testing to ensure the engine boots cleanly without disk I/O.
+pub struct SimulatedSnapshotProvider {
+    pub payload: String,
+    pub signature: String,
+    pub public_key: String,
+}
+
+impl Default for SimulatedSnapshotProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SimulatedSnapshotProvider {
+    /// Generates a valid Ed25519 cryptographic keypair and signs the simulated payload on initialization.
     pub fn new() -> Self {
-        Self
+        use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+        use ed25519_dalek::{Signer, SigningKey};
+        use rand::rngs::OsRng;
+
+        let mut csprng = OsRng;
+        let signing_key = SigningKey::generate(&mut csprng);
+
+        let public_key = BASE64.encode(signing_key.verifying_key().as_bytes());
+        let signature = BASE64.encode(signing_key.sign(SIMULATED_WORM_JSON.as_bytes()).to_bytes());
+
+        Self { payload: SIMULATED_WORM_JSON.to_string(), signature, public_key }
     }
 }
 
 impl ISnapshotProvider for SimulatedSnapshotProvider {
-    fn fetch_payload(&self) -> Result<(String, String), LmsError> {
-        Ok((SIMULATED_WORM_JSON.to_string(), "valid-lms-signature".to_string()))
+    fn fetch_payload(&self) -> PayloadFuture<'_> {
+        let p = self.payload.clone();
+        let s = self.signature.clone();
+        Box::pin(async move { Ok((p, s)) })
     }
 }
 
 /// Hydrates a fresh `RegistryStore` from a dynamically injected provider.
 ///
-/// Time: O(M) where M is the number of locales | Space: O(M) for the new map allocation
+/// Time: O(M) where M is the number of locales | Space: O(M) for the new map allocations
 ///
 /// # Logic Trace (Internal)
 /// 1. Fetch the raw payload and signature from the injected `ISnapshotProvider`.
-/// 2. Verify the payload's cryptographic signature via the security module.
-/// 3. Parse the JSON WORM payload into a vector of `LocaleProfile` objects.
-/// 4. Create an isolated, fresh `RegistryStore` and populate it.
-/// 5. Yield the hydrated store to be hot-swapped into the active state.
+/// 2. Verify the payload's cryptographic signature via the security module using the pinned public key.
+/// 3. Parse the JSON WORM payload into the internal `WormPayload` DTO.
+/// 4. Create an isolated, fresh `RegistryStore`.
+/// 5. Inject the parsed authoritative identity (`RegistryMetadata`) into the store.
+/// 6. Inject the arrays of Flyweights and dynamic aliases into the store's maps.
+/// 7. Yield the hydrated store to be hot-swapped into the active state.
 ///
 /// # Examples
-/// ```rust
-///   use bistun::data::repository::{hydrate_snapshot, SimulatedSnapshotProvider};
-///   let provider = SimulatedSnapshotProvider::new();
-///   let fresh_store = hydrate_snapshot(&provider).unwrap();
-///   assert!(fresh_store.get_profile("th-TH").is_some());
+/// ```text
+/// // See internal `tests` module for hermetic execution.
 /// ```
 ///
 /// # Arguments
 /// * `provider` (&impl ISnapshotProvider): The injected provider responsible for supplying the raw WORM payload and signature.
+/// * `public_key_b64` (&str): The Base64 encoded Ed25519 public key of the authoritative Curator compiler.
 ///
 /// # Returns
-/// * `Result<RegistryStore, LmsError>`: A fully hydrated memory pool ready for the hot-swap.
+/// * `Result<RegistryStore, LmsError>`: A fully hydrated memory pool ready for the atomic hot-swap.
 ///
 /// # Golden I/O
-/// * **Input**: `&SimulatedSnapshotProvider`
-/// * **Output**: `RegistryStore { pools: { "en-US": Arc<LocaleProfile>, ... } }`
+/// * **Input**: `&SimulatedSnapshotProvider`, `"Base64_Public_Key"`
+/// * **Output**: `Ok(RegistryStore { metadata: { version: "v1.0.0-simulated", ... }, ... })`
 ///
 /// # Errors, Panics, & Safety
-/// * **Errors**: Returns `LmsError::SecurityFault` if the signature is invalid or JSON parsing fails.
+/// * **Errors**: Returns `LmsError::SecurityFault` if the cryptographic signature is invalid or JSON deserialization fails.
 /// * **Panics**: None.
-/// * **Safety**: Safe synchronous background execution.
-pub fn hydrate_snapshot(provider: &impl ISnapshotProvider) -> Result<RegistryStore, LmsError> {
+/// * **Safety**: Safe asynchronous background execution.
+///
+/// # Side Effects
+/// * Performs heavy Ed25519 curve verification and JSON deserialization, intentionally isolated to background workers.
+pub async fn hydrate_snapshot(
+    provider: &impl ISnapshotProvider,
+    public_key_b64: &str, // Security Pin injection
+) -> Result<RegistryStore, LmsError> {
     // [STEP 1]: Fetch Payload
-    let (json_payload, signature) = provider.fetch_payload()?;
+    let (json_payload, signature) = provider.fetch_payload().await?;
 
     // [STEP 2]: Security Gate [Ref: 006-LMS-SEC]
-    verifier::verify_snapshot(&json_payload, &signature)?;
+    verifier::verify_snapshot(&json_payload, &signature, public_key_b64)?;
 
-    // [STEP 3]: Deserialization
-    let profiles: Vec<LocaleProfile> = serde_json::from_str(&json_payload)
-        .map_err(|e| LmsError::SecurityFault(format!("Failed to parse WORM JSON: {}", e)))?;
+    // [STEP 3]: Deserialization via structured DTO
+    let payload: WormPayload =
+        serde_json::from_str(&json_payload).map_err(|e| LmsError::SecurityFault {
+            pipeline_step: "Phase 0: WORM Hydration".to_string(),
+            context: "Deserialization".to_string(),
+            reason: format!("Failed to parse WORM JSON: {}", e),
+        })?;
 
     // [STEP 4]: Instantiation
     let mut store = RegistryStore::new();
-    for profile in profiles {
+
+    // [STEP 5]: Inject Identity
+    store.set_metadata(payload.metadata);
+
+    // [STEP 6]: Inject Flyweights and Aliases
+    for profile in payload.profiles {
         store.insert_stub(profile);
     }
+    for (alias, canonical) in payload.aliases {
+        store.insert_alias(alias, canonical);
+    }
 
-    // [STEP 5]: Return
+    // [STEP 7]: Return
     Ok(store)
 }
 
@@ -204,21 +317,29 @@ mod tests {
     mock! {
         pub SnapshotProvider {}
         impl ISnapshotProvider for SnapshotProvider {
-            fn fetch_payload(&self) -> Result<(String, String), LmsError>;
+           fn fetch_payload<'a>(&'a self) -> PayloadFuture<'_>;
         }
     }
 
-    #[test]
-    fn test_hydrate_snapshot_succeeds() {
+    #[tokio::test]
+    async fn test_hydrate_snapshot_succeeds() {
         // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Create a mock provider returning the golden JSON.
-        let mut mock_provider = MockSnapshotProvider::new();
-        mock_provider
-            .expect_fetch_payload()
-            .returning(|| Ok((SIMULATED_WORM_JSON.to_string(), "valid-lms-signature".to_string())));
+        // [STEP 1]: Setup: Create a dynamic simulated provider to generate valid keys.
+        let real_provider = SimulatedSnapshotProvider::new();
+        let p_clone = real_provider.payload.clone();
+        let s_clone = real_provider.signature.clone();
 
-        // [STEP 2]: Execute: Call the hydrator with our hermetic mock.
-        let store = hydrate_snapshot(&mock_provider).expect("Hydration failed");
+        let mut mock_provider = MockSnapshotProvider::new();
+        mock_provider.expect_fetch_payload().returning(move || {
+            let p = p_clone.clone();
+            let s = s_clone.clone();
+            Box::pin(async move { Ok((p, s)) })
+        });
+
+        // [STEP 2]: Execute: Call the hydrator with our hermetic mock and dynamic key.
+        let store = hydrate_snapshot(&mock_provider, &real_provider.public_key)
+            .await
+            .expect("Hydration failed");
 
         // [STEP 3]: Assert: Verify the returned store is populated with expected golden stubs.
         assert!(store.get_profile("en-US").is_some(), "System Default must exist");
@@ -226,5 +347,9 @@ mod tests {
         assert!(store.get_profile("th-TH").is_some());
         assert!(store.get_profile("zh-Hant").is_some());
         assert!(store.get_profile("invalid-locale").is_none());
+
+        // Assert Aliases parsed successfully
+        assert_eq!(store.resolve_alias("in"), Some("id".to_string()));
+        assert_eq!(store.resolve_alias("zh-TW"), Some("zh-Hant".to_string()));
     }
 }

@@ -23,51 +23,82 @@
 //!
 //! ### Glossary
 //! * **JWS (JSON Web Signature)**: A cryptographic standard for ensuring the payload has not been tampered with.
+//! * **Ed25519**: A high-speed, highly secure public-key signature system.
 
-use crate::core::resolver::bcp47::LmsError;
+use crate::models::error::LmsError;
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
-/// Verifies the cryptographic signature of an incoming WORM snapshot.
+/// Verifies the cryptographic signature of an incoming WORM snapshot using Ed25519.
 ///
-/// Time: O(N) where N is payload size | Space: O(1)
+/// Time: O(N) where N is payload size | Space: O(1) beyond key parsing
 ///
 /// # Logic Trace (Internal)
-/// 1. Accept the raw payload and its detached JWS signature.
-/// 2. Reject immediately if the signature is empty or purely whitespace.
-/// 3. Perform cryptographic signature verification against the pinned public key (currently stubbed).
-/// 4. Yield success if valid, or bubble up a `SecurityFault`.
+/// 1. **Decode Public Key**: Parse the Base64 pinned public key into an Ed25519 `VerifyingKey`.
+/// 2. **Decode Signature**: Parse the Base64 signature string into a cryptographic `Signature`.
+/// 3. **Verify Cryptographic Integrity**: Execute the Ed25519 verification against the raw payload bytes.
+/// 4. **Return Success**: Yield `Ok(())` if the signature is authentic.
 ///
 /// # Examples
-/// ```rust
-///   let payload = "{\"registry\": \"data\"}";
-///   assert!(verify_snapshot(payload, "valid-lms-signature").is_ok());
+/// ```text
+/// // See internal `tests` module for hermetic execution using dynamic Ed25519 keypairs.
 /// ```
 ///
 /// # Arguments
-/// * `_payload` (&str): The raw JSON string of the registry data. (Prefixed with `_` pending actual crypto implementation).
-/// * `signature` (&str): The detached signature string provided alongside the payload.
+/// * `payload` (&str): The raw JSON string of the WORM snapshot.
+/// * `signature_b64` (&str): The Base64 encoded Ed25519 signature of the payload.
+/// * `public_key_b64` (&str): The Base64 encoded Ed25519 public key of the authoritative Curator.
 ///
 /// # Returns
-/// * `Result<(), LmsError>`: `Ok(())` if the signature cryptographically matches the payload.
+/// * `Result<(), LmsError>`: Returns `Ok(())` upon successful cryptographic verification.
 ///
 /// # Golden I/O
-/// * **Input**: `"{\"id\": \"ar-EG\"}"`, `"valid-lms-signature"`
+/// * **Input**: `("{\"profiles\":[]}", "Base64_Signature", "Base64_Public_Key")`
 /// * **Output**: `Ok(())`
 ///
 /// # Errors, Panics, & Safety
-/// * **Errors**: Returns [`LmsError::SecurityFault`] if the signature is missing or fails cryptographic validation.
+/// * **Errors**: Returns `LmsError::SecurityFault` if key/signature parsing fails, or if the mathematical verification fails.
 /// * **Panics**: None.
 /// * **Safety**: Safe synchronous execution.
-pub fn verify_snapshot(_payload: &str, signature: &str) -> Result<(), LmsError> {
-    // [STEP 1] & [STEP 2]: Presence Check
-    if signature.trim().is_empty() {
-        return Err(LmsError::SecurityFault("Missing signature".to_string()));
-    }
+pub fn verify_snapshot(
+    payload: &str,
+    signature_b64: &str,
+    public_key_b64: &str,
+) -> Result<(), LmsError> {
+    // [STEP 1]: Decode Public Key
+    let pub_key_bytes = BASE64.decode(public_key_b64).map_err(|e| LmsError::SecurityFault {
+        pipeline_step: "Phase 0: Security Gate".to_string(),
+        context: "Key Parsing".to_string(),
+        reason: format!("Failed to decode Base64 public key: {}", e),
+    })?;
 
-    // [STEP 3]: Verification [STUB for 006-LMS-SEC]
-    // In future phases, this will use standard ECDSA/RSA validation against a pinned public key.
-    if signature != "valid-lms-signature" {
-        return Err(LmsError::SecurityFault("Invalid cryptographic signature".to_string()));
-    }
+    let verifying_key =
+        VerifyingKey::try_from(pub_key_bytes.as_slice()).map_err(|e| LmsError::SecurityFault {
+            pipeline_step: "Phase 0: Security Gate".to_string(),
+            context: "Key Parsing".to_string(),
+            reason: format!("Invalid Ed25519 public key format: {}", e),
+        })?;
+
+    // [STEP 2]: Decode Signature
+    let sig_bytes = BASE64.decode(signature_b64).map_err(|e| LmsError::SecurityFault {
+        pipeline_step: "Phase 0: Security Gate".to_string(),
+        context: "Signature Parsing".to_string(),
+        reason: format!("Failed to decode Base64 signature: {}", e),
+    })?;
+
+    let signature = Signature::from_slice(&sig_bytes).map_err(|e| LmsError::SecurityFault {
+        pipeline_step: "Phase 0: Security Gate".to_string(),
+        context: "Signature Parsing".to_string(),
+        reason: format!("Invalid Ed25519 signature format: {}", e),
+    })?;
+
+    // [STEP 3]: Verify Cryptographic Integrity
+    verifying_key.verify(payload.as_bytes(), &signature).map_err(|_| LmsError::SecurityFault {
+        pipeline_step: "Phase 0: Security Gate".to_string(),
+        context: "Cryptographic Validation".to_string(),
+        reason: "CRITICAL: Snapshot signature does not match the authoritative Public Key!"
+            .to_string(),
+    })?;
 
     // [STEP 4]: Return Success
     Ok(())
@@ -76,40 +107,59 @@ pub fn verify_snapshot(_payload: &str, signature: &str) -> Result<(), LmsError> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ed25519_dalek::{Signer, SigningKey};
+    use rand::rngs::OsRng;
+
+    /// Helper to dynamically generate a valid Ed25519 keypair and signature for testing.
+    fn generate_test_credentials(payload: &str) -> (String, String) {
+        let mut csprng = OsRng;
+        let signing_key = SigningKey::generate(&mut csprng);
+
+        let public_key = BASE64.encode(signing_key.verifying_key().as_bytes());
+        let signature = BASE64.encode(signing_key.sign(payload.as_bytes()).to_bytes());
+
+        (signature, public_key)
+    }
 
     #[test]
     fn test_verify_passes_valid_signature() {
         // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Provide valid payload and known-good signature.
+        // [STEP 1]: Setup: Provide valid payload and generate matching Ed25519 signature.
         let payload = "{\"registry\": \"data\"}";
+        let (valid_sig, pub_key) = generate_test_credentials(payload);
 
-        // [STEP 2] & [STEP 3]: Execute & Assert: Verify it passes validation.
-        assert!(verify_snapshot(payload, "valid-lms-signature").is_ok());
+        // [STEP 2] & [STEP 3]: Execute & Assert: Verify it passes cryptographic validation.
+        assert!(verify_snapshot(payload, &valid_sig, &pub_key).is_ok());
     }
 
     #[test]
     fn test_verify_catches_invalid_signature() {
         // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Provide a forged signature.
-        let payload = "{\"registry\": \"malicious-data\"}";
+        // [STEP 1]: Setup: Generate valid keys, but forge a signature of the correct length.
+        let payload = "{\"registry\": \"data\"}";
+        let (_, pub_key) = generate_test_credentials(payload);
 
-        // [STEP 2]: Execute: Run verifier.
-        let err = verify_snapshot(payload, "forged-signature").unwrap_err();
+        // 64-byte forged signature
+        let forged_bytes = [0u8; 64];
+        let forged_sig = BASE64.encode(forged_bytes);
 
-        // [STEP 3]: Assert: Verify it throws a SecurityFault.
-        assert!(matches!(err, LmsError::SecurityFault(_)));
+        // [STEP 2]: Execute: Run verifier against forged data.
+        let err = verify_snapshot(payload, &forged_sig, &pub_key).unwrap_err();
+
+        // [STEP 3]: Assert: Verify it throws a SecurityFault due to math mismatch.
+        assert!(matches!(err, LmsError::SecurityFault { .. }));
     }
 
     #[test]
-    fn test_verify_catches_empty_signature() {
+    fn test_verify_catches_malformed_base64() {
         // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Provide an empty/whitespace signature.
+        // [STEP 1]: Setup: Provide invalid Base64 strings.
         let payload = "{\"registry\": \"data\"}";
 
         // [STEP 2]: Execute: Run verifier.
-        let err = verify_snapshot(payload, "   ").unwrap_err();
+        let err = verify_snapshot(payload, "invalid_b64!@#", "invalid_b64!@#").unwrap_err();
 
-        // [STEP 3]: Assert: Verify it throws a SecurityFault.
-        assert!(matches!(err, LmsError::SecurityFault(_)));
+        // [STEP 3]: Assert: Verify it throws a SecurityFault during parsing.
+        assert!(matches!(err, LmsError::SecurityFault { .. }));
     }
 }

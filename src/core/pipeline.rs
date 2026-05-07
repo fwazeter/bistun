@@ -26,8 +26,10 @@
 
 use crate::core::aggregator::typology;
 use crate::core::extension::orthography;
-use crate::core::resolver::bcp47::{self, LmsError};
-use crate::data::swap::IRegistryState; // Dependency Inversion Interface
+use crate::core::resolver::orchestrator;
+use crate::core::resource; // [NEW] Phase 2.5 Domain
+use crate::data::swap::IRegistryState;
+use crate::models::error::LmsError;
 use crate::models::manifest::CapabilityManifest;
 use crate::ops::telemetry;
 use crate::validation::integrity;
@@ -42,20 +44,20 @@ use tracing::{debug, info, instrument};
 /// 1. **Phase 1 (Resolve)**: Pass the raw tag and state to the Taxonomic resolver.
 /// 2. **Fetch Profile**: Retrieve the exact `LocaleProfile` from the dynamic Flyweight pool.
 /// 3. **Phase 2 (Aggregate)**: Hydrate Typology traits directly from the `LocaleProfile`.
-/// 4. **Phase 3 (Override)**: Hydrate Orthography mechanics directly from the `LocaleProfile`.
-/// 5. **Phase 4 (Integrity)**: Verify the fully aggregated manifest for mechanical contradictions.
-/// 6. **Phase 5 (Telemetry)**: Record the pipeline duration and resolution path.
-/// 7. **Return**: Yield the hydrated and validated manifest.
+/// 4. **Phase 2.5 (Resource Bridge)**: Transform abstract resource IDs into physical URIs.
+/// 5. **Phase 3 (Override)**: Hydrate Orthography mechanics directly from the `LocaleProfile`.
+/// 6. **Phase 4 (Integrity)**: Verify the fully aggregated manifest for mechanical contradictions.
+/// 7. **Phase 5 (Telemetry)**: Record the pipeline duration and resolution path.
+/// 8. **Return**: Yield the hydrated and validated manifest.
 ///
 /// # Examples
-/// ```rust
-///  let manifest = generate_manifest("ar-EG-u-ca-islamic", &state).unwrap();
-///  assert_eq!(manifest.resolved_locale, "ar-EG");
+/// ```text
+///  // See internal `tests` module for hermetic execution.
 /// ```
 ///
 /// # Arguments
 /// * `raw_tag` (&str): The raw BCP 47 language tag requested by the client.
-/// * `state` (&dyn IRegistryState): The thread-safe active Flyweight pool of definitions, abstracted via dynamic dispatch.
+/// * `state` (&dyn IRegistryState): The thread-safe active Flyweight pool of definitions.
 ///
 /// # Returns
 /// * `Result<CapabilityManifest, LmsError>`: The fully synthesized, immutable linguistic capability payload.
@@ -71,92 +73,82 @@ use tracing::{debug, info, instrument};
 #[instrument(level = "info", name = "pipeline_execution", skip(state), fields(tag = raw_tag))]
 pub fn generate_manifest(
     raw_tag: &str,
-    state: &dyn IRegistryState, // Aligned with the dynamic dispatch requirement from bcp47.rs
+    state: &dyn IRegistryState,
 ) -> Result<CapabilityManifest, LmsError> {
-    // START THE CLOCK for DTO injection (Tracing handles internal SLI tracking)
     let start_time = Instant::now();
     debug!("Commencing 5-Phase Pipeline for tag: {}", raw_tag);
 
-    // [STEP 1]: Phase 1: Resolve (Taxonomy) uses dynamic state to find the truncation bound
-    let locale = bcp47::resolve(raw_tag, state)?;
+    // [STEP 1]: Phase 1: Resolve (Taxonomy)
+    let locale = orchestrator::resolve(raw_tag, state)?;
     debug!("Resolved canonical ID: {}", locale.id);
 
-    // [STEP 2]: Fetch the Flyweight Profile using the resolved canonical ID
-    let profile = state
-        .get_profile(&locale.id)
-        .ok_or_else(|| LmsError::ResolutionFailed(locale.id.clone()))?;
+    // [STEP 2]: Fetch the Flyweight Profile
+    let profile = state.get_profile(&locale.id).ok_or_else(|| LmsError::ResolutionFailed {
+        pipeline_step: "Phase 1: Taxonomic Resolution".to_string(),
+        tag: locale.id.clone(),
+        reason:
+            "Profile missing from active registry memory pool despite successful chain resolution"
+                .to_string(),
+    })?;
 
-    // Instantiation
     let mut manifest = CapabilityManifest::new(locale.id.clone());
 
     // [STEP 3]: Phase 2: Aggregate (Typology)
     typology::aggregate(&mut manifest, &profile)?;
 
-    // [STEP 4]: Phase 3: Override (Orthography)
+    // [STEP 4]: Phase 2.5: The Resource Bridge [Ref: 001-LMS-CORE]
+    // Fetches the environment-specific URI without locks and resolves abstract IDs
+    resource::resolver::resolve_resources(&mut manifest, &state.get_base_resource_uri())?;
+
+    // [STEP 5]: Phase 3: Override (Orthography)
     orthography::apply_rendering_traits(&mut manifest, &profile, raw_tag)?;
 
-    // [STEP 5]: Phase 4: Integrity Check [Ref: 003-LMS-VAL]
+    // [STEP 6]: Phase 4: Integrity Check
     integrity::verify(&manifest)?;
 
-    // [STEP 6]: Phase 5: Telemetry [Ref: 007-LMS-OPS]
-    // Note: In Phase 8, "v0.2.0" will be dynamically pulled from the registry snapshot.
-    telemetry::record_metrics(&mut manifest, start_time, &locale.resolution_path, "v0.2.0");
+    // [STEP 7]: Phase 5: Telemetry
+    let version = state.get_version();
+    telemetry::record_metrics(&mut manifest, start_time, &locale.resolution_path, &version);
 
     info!("Successfully generated manifest for {}", locale.id);
 
-    // [STEP 7]: Return
+    // [STEP 8]: Return
     Ok(manifest)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::store::LocaleProfile;
-    use crate::models::traits::{Direction, MorphType, SegType};
-    use mockall::mock;
-    use std::sync::Arc;
-
-    // LMS-TEST: Generate the hermetic mock based on the new IRegistryState trait
-    mock! {
-        pub RegistryState {}
-        impl IRegistryState for RegistryState {
-            fn get_profile(&self, id: &str) -> Option<Arc<LocaleProfile>>; // Must return Arc per the Flyweight pattern
-        }
-    }
-
-    /// Internal helper to generate a mock Flyweight profile for hermetic testing.
-    fn create_mock_profile() -> Arc<LocaleProfile> {
-        Arc::new(LocaleProfile {
-            id: "ar-EG".to_string(),
-            morph: MorphType::TEMPLATIC,
-            base_seg: SegType::SPACE,
-            alt_seg: None,
-            direction: Direction::RTL,
-            has_bidi: true,
-            requires_shaping: true,
-            plurals: vec!["other".to_string()],
-            required_resource: None,
-        })
-    }
+    use crate::core::resolver::test_utils::{MockRegistryState, create_stub};
 
     #[test]
     fn test_dynamic_pipeline_resolution_and_telemetry() {
-        // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Construct a purely in-memory hermetic `RegistryState` using a mock.
+        // [STEP 1]: Setup
         let mut mock_state = MockRegistryState::new();
 
-        // We expect the pipeline to query the profile for the canonical ID
-        mock_state.expect_get_profile().returning(|id| {
-            // If the resolver asks for the full tag, we return None to force truncation.
-            // If it asks for the canonical ID, we return the profile.
-            if id == "ar-EG" { Some(create_mock_profile()) } else { None }
-        });
+        mock_state.expect_resolve_alias().returning(|_| None);
+        mock_state.expect_get_version().returning(|| "v1.0.0-mock".to_string());
 
-        // [STEP 2]: Execute: Run the pipeline orchestrator.
+        // [NEW]: Inject the mock base URI
+        mock_state
+            .expect_get_base_resource_uri()
+            .returning(|| "https://cdn.bistun.io/".to_string());
+
+        mock_state
+            .expect_get_profile()
+            .returning(|id| if id == "ar-EG" { Some(create_stub("ar-EG")) } else { None });
+
+        // [STEP 2]: Execute
         let manifest = generate_manifest("ar-EG-u-ca-islamic", &mock_state).unwrap();
 
-        // [STEP 3]: Assert: Verify the manifest is hydrated and telemetry is recorded.
+        // [STEP 3]: Assert
         assert_eq!(manifest.resolved_locale, "ar-EG");
         assert!(manifest.metadata.contains_key("resolution_time_ms"));
+
+        let calendar = manifest.traits.get(&crate::models::traits::TraitKey::Calendar);
+        assert_eq!(
+            calendar,
+            Some(&crate::models::manifest::TraitValue::String("islamic".to_string()))
+        );
     }
 }

@@ -56,6 +56,36 @@ pub trait IRegistryState: Send + Sync {
     /// * **Panics**: None. Wait-free reads cannot panic.
     /// * **Safety**: Safe concurrent execution.
     fn get_profile(&self, id: &str) -> Option<Arc<LocaleProfile>>;
+
+    /// Safely and wait-freely resolves a dynamic alias mapping.
+    ///
+    /// Time: O(1) | Space: O(1) string clone
+    ///
+    /// # Logic Trace (Internal)
+    /// 1. Perform a wait-free load of the atomic pointer to the active store.
+    /// 2. Delegate the query to the underlying `RegistryStore`.
+    /// 3. Return the mapped canonical ID string if found.
+    ///
+    /// # Arguments
+    /// * `tag` (&str): The deprecated or macrolanguage BCP 47 tag.
+    ///
+    /// # Returns
+    /// * `Option<String>`: The mapped canonical locale string if an alias exists.
+    fn resolve_alias(&self, tag: &str) -> Option<String>;
+
+    fn get_version(&self) -> String;
+
+    /// Safely and wait-freely fetches the configured base resource URI.
+    ///
+    /// Time: O(1) | Space: O(1) string clone
+    ///
+    /// # Logic Trace (Internal)
+    /// 1. Perform a wait-free load of the atomic pointer to the active store.
+    /// 2. Access and clone the configured `base_resource_uri`.
+    ///
+    /// # Returns
+    /// * `String`: The fully qualified base URI (e.g., `https://cdn.example.com/v1/icu/`).
+    fn get_base_resource_uri(&self) -> String;
 }
 
 /// Manages thread-safe, wait-free access to the active linguistic registry.
@@ -157,12 +187,29 @@ impl IRegistryState for RegistryState {
         // [STEP 2]: Query the store.
         store.get_profile(id)
     }
+
+    fn resolve_alias(&self, tag: &str) -> Option<String> {
+        // [STEP 1]: Load the pointer (Wait-free, no locks acquired).
+        let store = self.active_store.load();
+        // [STEP 2]: Query the store.
+        store.resolve_alias(tag)
+    }
+
+    fn get_version(&self) -> String {
+        // Wait-free read of the metadata header
+        self.active_store.load().metadata.version.clone()
+    }
+
+    fn get_base_resource_uri(&self) -> String {
+        // Wait-free read of the configured base CDN URI
+        self.active_store.load().base_resource_uri.to_string()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::traits::{Direction, MorphType, SegType};
+    use crate::models::traits::{Direction, MorphType, NormType, SegType, TransType};
 
     /// Helper to generate a mock profile and resolve linter code duplication warnings.
     fn create_mock_profile() -> LocaleProfile {
@@ -175,6 +222,9 @@ mod tests {
             has_bidi: true,
             requires_shaping: true,
             plurals: vec!["other".to_string()],
+            unicode_blocks: vec![],
+            normalization: NormType::NFC,
+            transliteration: TransType::NONE,
             required_resource: None,
         }
     }
@@ -189,6 +239,8 @@ mod tests {
         // [STEP 2]: Execute: Build a new store offline, insert a stub, and swap it.
         let mut new_store = RegistryStore::new();
         new_store.insert_stub(create_mock_profile());
+        new_store.insert_alias("in".to_string(), "id".to_string());
+        new_store.set_base_resource_uri("https://test.cdn.bistun.io/".to_string());
 
         // Verify cloning the state respects the atomic pointer (Simulating web workers)
         let worker_state = state.clone();
@@ -199,5 +251,7 @@ mod tests {
         // [STEP 3]: Assert: Verify the new data is instantly accessible across cloned states.
         let profile = worker_state.get_profile("ar-EG").expect("Swap failed on cloned state");
         assert_eq!(profile.direction, Direction::RTL);
+        assert_eq!(worker_state.resolve_alias("in"), Some("id".to_string()));
+        assert_eq!(worker_state.get_base_resource_uri(), "https://test.cdn.bistun.io/");
     }
 }

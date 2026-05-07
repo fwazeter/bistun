@@ -24,8 +24,8 @@
 //! ### Glossary
 //! * **Bidi (Bidirectional)**: Text that contains both LTR and RTL scripts natively, requiring complex shaping and layout algorithms.
 
-use crate::core::resolver::bcp47::LmsError;
 use crate::data::store::LocaleProfile;
+use crate::models::error::LmsError;
 use crate::models::manifest::{CapabilityManifest, TraitValue};
 use crate::models::traits::TraitKey;
 
@@ -114,7 +114,7 @@ pub fn apply_rendering_traits(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::traits::{Direction, MorphType, SegType};
+    use crate::models::traits::{Direction, MorphType, NormType, SegType, TransType};
 
     /// Internal helper to generate a mock Flyweight profile for hermetic testing.
     fn create_mock_profile(
@@ -131,6 +131,9 @@ mod tests {
             has_bidi,
             requires_shaping,
             plurals: vec!["other".to_string()],
+            unicode_blocks: vec![],
+            normalization: NormType::NFC,
+            transliteration: TransType::NONE,
             required_resource: None,
         }
     }

@@ -50,7 +50,7 @@ use thiserror::Error;
 ///     "[Phase 2: Aggregation] Missing Trait (MORPHOLOGY_TYPE): Golden Set baseline breached"
 /// );
 /// ```
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum LmsError {
     /// Raised when a linguistic algorithm fails to process the input string.
     #[error("[{pipeline_step}] Strategy Execution Failure ({context}): {reason}")]
@@ -84,6 +84,18 @@ pub enum LmsError {
         /// Why did it fail? (e.g., "Malformed Unicode extension subtag")
         reason: String,
     },
+
+    /// Raised when the Taxonomic Engine fails to resolve a locale, exhausting the fallback chain.
+    #[error("[{pipeline_step}] Resolution Failed ({tag}): {reason}")]
+    ResolutionFailed { pipeline_step: String, tag: String, reason: String },
+
+    /// Raised when a capability manifest fails structural or typological integrity checks.
+    #[error("[{pipeline_step}] Integrity Violation ({context}): {reason}")]
+    IntegrityViolation { pipeline_step: String, context: String, reason: String },
+
+    /// Raised when registry signature verification or WORM state fails.
+    #[error("[{pipeline_step}] Integrity Failure ({context}): {reason}")]
+    SecurityFault { pipeline_step: String, context: String, reason: String },
 }
 
 #[cfg(test)]
