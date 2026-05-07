@@ -8,7 +8,7 @@
 //! **Why**: This standalone utility allows administrators to generate authoritative Ed25519 keypairs and sign WORM snapshots.
 //! **Impact**: This is the only tool capable of "unlocking" the security gate in the production microservice.
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use ed25519_dalek::{Signer, SigningKey};
 use rand::rngs::OsRng;
 use std::fs;
@@ -36,7 +36,8 @@ fn main() {
     let sig_path = "data/snapshot.sig";
 
     println!("📝 Reading WORM snapshot from {}...", payload_path);
-    let payload = fs::read_to_string(payload_path).expect("CRITICAL: snapshot.json not found in data/ directory");
+    let payload = fs::read_to_string(payload_path)
+        .expect("CRITICAL: snapshot.json not found in data/ directory");
 
     // [STEP 3]: Generate Detached Signature
     let signature = signing_key.sign(payload.as_bytes());
