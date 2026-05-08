@@ -11,7 +11,7 @@ members = [
 version = "0.9.0"
 authors = ["Francis Xavier Wazeter IV"]
 edition = "2024"
-license = "GNU GPL v3"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/fwazeter/bistun"
 
 [workspace.dependencies]
