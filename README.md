@@ -62,7 +62,6 @@ graph LR
     subgraph "The Delivery Layer (bistun-api)"
     E
     end
-
 ```
 
 ---
@@ -79,7 +78,6 @@ Clone the repository and verify the workspace meets all architectural and perfor
 git clone https://github.com/fwazeter/bistun.git
 cd bistun
 just verify-all
-
 ```
 
 ### Step 2: The Cryptographic Ceremony
@@ -88,7 +86,6 @@ Bistun requires a cryptographically signed WORM (Write-Once, Read-Many) snapshot
 
 ```bash
 cargo run -p bistun-api --bin curator
-
 ```
 
 * **Action**: Copy the generated `PUBLIC_KEY` and paste it into a new `.env` file at the root.
@@ -100,7 +97,6 @@ Create your environment file based on the template.
 ```bash
 cp .env.example .env
 # Edit .env and paste your CURATOR_PUBLIC_KEY
-
 ```
 
 ### Step 4: Launch the Atomic Capability Sidecar
@@ -114,7 +110,6 @@ cargo run -p bistun-api
 # Option B: Dockerized sidecar
 just docker-build
 just docker-run
-
 ```
 
 ### Step 5: Resolve Linguistic DNA
@@ -123,7 +118,6 @@ Verify the implementation by requesting a "Golden Path" capability manifest via 
 
 ```bash
 curl -s http://localhost:8080/v1/manifest/th-TH
-
 ```
 
 * **Expected Result**: A JSON manifest containing Thai segmentation strategies, LTR directionality, and required ICU4X resource pointers.
