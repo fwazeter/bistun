@@ -1,0 +1,29 @@
+[package]
+name = "bistun-api"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+default-run = "bistun-api"
+
+[dependencies]
+# System integration
+bistun-core = { workspace = true }
+bistun-lms = { workspace = true }
+
+# Config & Environment v0.9.0
+dotenvy = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+
+# Web Server & Async Runtime
+axum = "0.7.5"
+tokio = { version = "1.37.0", features = ["full"] }
+
+# Observability formatters
+tracing-subscriber = "0.3.18"
+
+# Curator (Crypto) Requirements
+ed25519-dalek = { version = "2.1.1", features = ["rand_core"] }
+rand = "0.8.5"
+base64 = "0.22.1"

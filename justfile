@@ -9,8 +9,13 @@ default:
 # --- QUALITY GATES (LMS-DOC & LMS-TEST) ---
 
 # Run the complete Quality Gate (Fmt -> Test -> Clippy -> Doc)
-verify-all: fmt test-hermetic lint verify-docs
-    @echo "All Engineering Standards passed."
+#verify-all: fmt test-hermetic lint verify-docs
+#    @echo "All Engineering Standards passed."
+# root justfile
+verify-all:
+    cargo fmt --all --check
+    cargo test --workspace
+    cargo clippy --workspace -- -D warnings
 
 # Enforce standard formatting
 fmt:

@@ -27,3 +27,6 @@ rustc-ice-*.txt
 snapshot.json
 
 data/data
+
+# env file
+.env
