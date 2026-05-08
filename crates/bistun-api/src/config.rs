@@ -56,6 +56,7 @@ impl AppConfig {
     /// # Examples
     /// ```rust
     /// # use bistun_api::config::AppConfig;
+    /// # std::env::set_var("CURATOR_PUBLIC_KEY", "dummy_key");
     /// // Standard initialization during sidecar boot
     /// let config = AppConfig::load();
     /// assert_eq!(config.lms_env, "development");
