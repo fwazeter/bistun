@@ -30,9 +30,9 @@ use bistun_api::config::AppConfig;
 use bistun_api::routes;
 use bistun_core::ops::SdkState;
 use bistun_lms::LinguisticManager;
-use tracing::{error, info};
 #[cfg(feature = "simulation")]
 use bistun_lms::data::repository::SimulatedSnapshotProvider;
+use tracing::{error, info};
 
 /// Initializes the runtime environment and starts the asynchronous API server.
 ///
@@ -87,7 +87,10 @@ async fn main() {
     if let Some(url) = &config.lms_registry_url {
         #[cfg(feature = "network")]
         {
-            let pub_key = config.curator_public_key.as_deref().expect("CRITICAL: Remote hydration requires CURATOR_PUBLIC_KEY");
+            let pub_key = config
+                .curator_public_key
+                .as_deref()
+                .expect("CRITICAL: Remote hydration requires CURATOR_PUBLIC_KEY");
             let provider = bistun_lms::data::providers::HttpSnapshotProvider::new(url.clone());
             manager.initialize(&provider, pub_key).await;
         }
@@ -95,7 +98,10 @@ async fn main() {
         #[cfg(feature = "fs")]
         {
             info!("💾 Local Disk Hydration selected. Fetching from data/ directory...");
-            let pub_key = config.curator_public_key.as_deref().expect("CRITICAL: Disk hydration requires CURATOR_PUBLIC_KEY");
+            let pub_key = config
+                .curator_public_key
+                .as_deref()
+                .expect("CRITICAL: Disk hydration requires CURATOR_PUBLIC_KEY");
             let provider = bistun_lms::data::providers::FileSnapshotProvider::new(
                 "data/snapshot.json".to_string(),
                 "data/snapshot.sig".to_string(),
@@ -116,7 +122,9 @@ async fn main() {
             panic!("CRITICAL: Missing configuration, and 'simulation' feature is disabled.");
         }
     } else {
-        panic!("CRITICAL: Production boot failed. Missing CURATOR_PUBLIC_KEY or data/snapshot.json!");
+        panic!(
+            "CRITICAL: Production boot failed. Missing CURATOR_PUBLIC_KEY or data/snapshot.json!"
+        );
     }
 
     // Validation check for registry state
