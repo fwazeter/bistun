@@ -1,0 +1,45 @@
+[package]
+name = "bistun-lms"
+version = "0.9.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Internal DNA link
+bistun-core = { workspace = true, features = ["persistence", "ops", "testing"] }
+
+# Engine requirements
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+hashbrown = { workspace = true }
+
+# Performance: High-speed collections for Flyweight pools
+tokio = {version="1.52.2", features = ["rt-multi-thread", "time", "fs"]}
+reqwest = "0.13.3"
+
+arc-swap = "1.9.1"
+
+# Cryptographic verification
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"]}
+# older rand version used for compatibility with code structure in ed25519.
+rand = "0.8.5"
+base64 = "0.22.1"
+
+[dev-dependencies]
+# Hermetic testing per LMS-TEST
+mockall = { workspace = true }
+# Required for statistically significant performance verification
+criterion = { version = "0.8.2", features = ["html_reports"] }
+# Manages temporary files
+tempfile = "3.27.0"
+axum = "0.8.9"
+http = "1.4.0"
+tokio = { version = "1.52.2", features=["full"] }
+tracing-subscriber = "0.3.23"
+tower = "0.5.3"
+
+[[bench]]
+name = "capability_engine"
+harness = false
