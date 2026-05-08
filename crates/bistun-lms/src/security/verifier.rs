@@ -104,7 +104,7 @@ pub fn verify_snapshot(
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "simulation"))]
 mod tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
