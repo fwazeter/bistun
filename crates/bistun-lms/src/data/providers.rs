@@ -24,13 +24,16 @@
 //! ### Glossary
 //! * **Payload**: The combined data of the WORM JSON registry and its cryptographic JWS signature.
 
+#[cfg(any(feature = "fs", feature = "network"))]
 use crate::data::repository::{ISnapshotProvider, PayloadFuture};
+#[cfg(any(feature = "fs", feature = "network"))]
 use bistun_core::error::LmsError;
 
 // -----------------------------------------------------------------------------
-// File-Based Provider
+// File-Based Provider (Gated by 'fs' feature)
 // -----------------------------------------------------------------------------
 
+#[cfg(feature = "fs")]
 /// A concrete provider that reads WORM snapshots from the local filesystem.
 #[derive(Debug, Clone)]
 pub struct FileSnapshotProvider {
@@ -38,6 +41,7 @@ pub struct FileSnapshotProvider {
     sig_path: String,
 }
 
+#[cfg(feature = "fs")]
 impl FileSnapshotProvider {
     /// Instantiates a new FileSnapshotProvider.
     ///
@@ -73,6 +77,7 @@ impl FileSnapshotProvider {
     }
 }
 
+#[cfg(feature = "fs")]
 impl ISnapshotProvider for FileSnapshotProvider {
     fn fetch_payload(&self) -> PayloadFuture<'_> {
         Box::pin(async move {
@@ -104,12 +109,14 @@ impl ISnapshotProvider for FileSnapshotProvider {
 // Network-Based Provider
 // -----------------------------------------------------------------------------
 
+#[cfg(feature = "network")]
 /// A concrete provider that fetches WORM snapshots from a remote HTTP server.
 #[derive(Debug, Clone)]
 pub struct HttpSnapshotProvider {
     base_url: String,
 }
 
+#[cfg(feature = "network")]
 impl HttpSnapshotProvider {
     /// Instantiates a new HttpSnapshotProvider.
     ///
@@ -144,6 +151,7 @@ impl HttpSnapshotProvider {
     }
 }
 
+#[cfg(feature = "network")]
 impl ISnapshotProvider for HttpSnapshotProvider {
     fn fetch_payload(&self) -> PayloadFuture<'_> {
         Box::pin(async move {
@@ -203,42 +211,47 @@ impl ISnapshotProvider for HttpSnapshotProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    #[tokio::test] // NEW: Async test harness
-    async fn test_file_provider_fetches_payload() {
-        // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Create a temporary file and write a valid JSON stub.
-        let mut json_file = NamedTempFile::new().unwrap();
-        let sig_file = NamedTempFile::new().unwrap();
+    #[cfg(feature = "network")]
+    mod fs_tests {
+        use super::*;
+        use std::io::Write;
+        use tempfile::NamedTempFile;
 
-        writeln!(json_file, "[{{\"id\": \"ar-EG\"}}]").unwrap();
+        #[tokio::test] // NEW: Async test harness
+        async fn test_file_provider_fetches_payload() {
+            // [Logic Trace Mapping]
+            // [STEP 1]: Setup: Create a temporary file and write a valid JSON stub.
+            let mut json_file = NamedTempFile::new().unwrap();
+            let sig_file = NamedTempFile::new().unwrap();
 
-        let json_path = json_file.path().to_str().unwrap().to_string();
-        let sig_path = sig_file.path().to_str().unwrap().to_string();
+            writeln!(json_file, "[{{\"id\": \"ar-EG\"}}]").unwrap();
 
-        // [STEP 2]: Execute: Instantiate provider and await fetch.
-        let provider = FileSnapshotProvider::new(json_path, sig_path);
-        let result = provider.fetch_payload().await;
+            let json_path = json_file.path().to_str().unwrap().to_string();
+            let sig_path = sig_file.path().to_str().unwrap().to_string();
 
-        // [STEP 3]: Assert: Verify the payload was read correctly.
-        assert!(result.is_ok());
-        let (payload, _) = result.unwrap();
-        assert!(payload.contains("ar-EG"));
-    }
+            // [STEP 2]: Execute: Instantiate provider and await fetch.
+            let provider = FileSnapshotProvider::new(json_path, sig_path);
+            let result = provider.fetch_payload().await;
 
-    #[tokio::test]
-    async fn test_file_provider_fails_gracefully_on_missing_file() {
-        // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Point to non-existent files.
-        let provider =
-            FileSnapshotProvider::new("does_not_exist.json".into(), "missing.sig".into());
+            // [STEP 3]: Assert: Verify the payload was read correctly.
+            assert!(result.is_ok());
+            let (payload, _) = result.unwrap();
+            assert!(payload.contains("ar-EG"));
+        }
 
-        // [STEP 2]: Execute: Attempt fetch.
-        let result = provider.fetch_payload().await;
+        #[tokio::test]
+        async fn test_file_provider_fails_gracefully_on_missing_file() {
+            // [Logic Trace Mapping]
+            // [STEP 1]: Setup: Point to non-existent files.
+            let provider =
+                FileSnapshotProvider::new("does_not_exist.json".into(), "missing.sig".into());
 
-        // [STEP 3]: Assert: Verify it returns an IntegrityViolation.
-        assert!(matches!(result, Err(LmsError::IntegrityViolation { .. })));
+            // [STEP 2]: Execute: Attempt fetch.
+            let result = provider.fetch_payload().await;
+
+            // [STEP 3]: Assert: Verify it returns an IntegrityViolation.
+            assert!(matches!(result, Err(LmsError::IntegrityViolation { .. })));
+        }
     }
 }

@@ -36,7 +36,7 @@
 //! * **Hydration**: The process of reading static data and inflating it into operational memory structures.
 
 use crate::security::verifier;
-use bistun_core::{LmsError, RegistryStore, SIMULATED_WORM_JSON, WormPayload};
+use bistun_core::{LmsError, RegistryStore, WormPayload};
 use std::future::Future;
 use std::pin::Pin;
 
@@ -55,6 +55,10 @@ pub trait ISnapshotProvider: Send + Sync {
     fn fetch_payload(&self) -> PayloadFuture<'_>;
 }
 
+// ---------------------------------------------------------
+// SIMULATION GATED BLOCK
+// ---------------------------------------------------------
+#[cfg(feature = "simulation")]
 /// A concrete provider utilizing embedded seed data and a dynamically generated Ed25519 signature.
 /// Used primarily for testing to ensure the engine boots cleanly without disk I/O.
 pub struct SimulatedSnapshotProvider {
@@ -63,16 +67,19 @@ pub struct SimulatedSnapshotProvider {
     pub public_key: String,
 }
 
+#[cfg(feature = "simulation")]
 impl Default for SimulatedSnapshotProvider {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "simulation")]
 impl SimulatedSnapshotProvider {
     /// Generates a valid Ed25519 cryptographic keypair and signs the simulated payload on initialization.
     pub fn new() -> Self {
         use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+        use bistun_core::SIMULATED_WORM_JSON;
         use ed25519_dalek::{Signer, SigningKey};
         use rand::rngs::OsRng;
 
@@ -86,6 +93,7 @@ impl SimulatedSnapshotProvider {
     }
 }
 
+#[cfg(feature = "simulation")]
 impl ISnapshotProvider for SimulatedSnapshotProvider {
     fn fetch_payload(&self) -> PayloadFuture<'_> {
         let p = self.payload.clone();
@@ -93,6 +101,8 @@ impl ISnapshotProvider for SimulatedSnapshotProvider {
         Box::pin(async move { Ok((p, s)) })
     }
 }
+
+// -------------------------------------------------------------------
 
 /// Hydrates a fresh `RegistryStore` from a dynamically injected provider.
 ///
@@ -166,7 +176,7 @@ pub async fn hydrate_snapshot(
     Ok(store)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "simulation"))]
 mod tests {
     use super::*;
     use mockall::mock;

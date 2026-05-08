@@ -33,8 +33,13 @@ use bistun_core::{
     TraitValue,
 };
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[cfg(feature = "async-worker")]
+use std::time::Duration;
+#[cfg(feature = "async-worker")]
 use tokio::time;
+
 use tracing::{error, info};
 
 /// The primary interface for generating Linguistic Capability Manifests.
@@ -132,16 +137,20 @@ impl LinguisticManager {
     /// * Mutates the internal `self.status` lock.
     /// * Performs heavy cryptographic operations and deserialization.
     pub async fn initialize(&self, provider: &impl ISnapshotProvider, public_key_b64: &str) {
+        // [STEP 1]: Record the start of the sync attempt.
         self.metrics.write().unwrap().last_attempted_sync = Self::now_secs();
 
+        // [STEP 2]: Await the repository hydrator.
         match hydrate_snapshot(provider, public_key_b64).await {
             Ok(store) => {
+                // [STEP 3a]: On success, hot-swap the registry and set status to Ready.
                 self.state.swap_registry(store);
                 *self.status.write().unwrap() = SdkState::Ready;
                 self.metrics.write().unwrap().last_successful_sync = Self::now_secs();
                 info!("LinguisticManager initialized successfully.");
             }
             Err(e) => {
+                // [STEP 3b]: On failure, activate Circuit Breaker mode.
                 *self.status.write().unwrap() = SdkState::Degraded;
                 self.metrics.write().unwrap().sync_error_count += 1;
                 error!(
@@ -188,21 +197,26 @@ impl LinguisticManager {
     ///
     /// # Side Effects
     /// * Spawns a new background thread (`tokio::spawn`).
+    #[cfg(feature = "async-worker")]
     pub fn spawn_background_sync<P>(&self, interval_secs: u64, provider: P, public_key_b64: String)
     where
         P: ISnapshotProvider + 'static,
     {
+        // [STEP 1]: Clone atomic state and locks for the background thread.
         let state = self.state.clone();
         let status = self.status.clone();
         let metrics = self.metrics.clone();
 
+        // [STEP 2]: Spawn the detached Tokio task
         tokio::spawn(async move {
             info!("Background sync worker started (Interval: {}s)", interval_secs);
             let mut interval_timer = time::interval(Duration::from_secs(interval_secs));
 
             loop {
+                // [STEP 3]: Sleep for the requested interval.
                 interval_timer.tick().await;
 
+                // [STEP 4]: Attempt to fetch and hydrate a new snapshot.
                 match hydrate_snapshot(&provider, &public_key_b64).await {
                     Ok(store) => {
                         state.swap_registry(store);
@@ -267,12 +281,12 @@ impl LinguisticManager {
     /// * **Input**: `"ar-EG"`
     /// * **Output**: `Ok(CapabilityManifest { resolved_locale: "ar-EG", ... })`
     pub fn resolve_capabilities(&self, tag: &str) -> Result<CapabilityManifest, LmsError> {
-        // [STEP 1]: Circuit Breaker Check.
+        // [STEP 1]: Check health status; trigger Circuit Breaker if Degraded.
         if self.status() == SdkState::Degraded {
             return Ok(Self::generate_circuit_breaker_manifest());
         }
 
-        // [STEP 2] & [STEP 3]: Pipeline Delegation.
+        // [STEP 2 & 3]: Delegate to the 5-Phase pipeline and return.
         generate_manifest(tag, &self.state)
     }
 
@@ -286,8 +300,10 @@ impl LinguisticManager {
     /// 3. Inject telemetry metadata.
     /// 4. Return the hardcoded fallback manifest.
     fn generate_circuit_breaker_manifest() -> CapabilityManifest {
+        // [STEP 1]: Instantiate default "en-US" manifest.
         let mut manifest = CapabilityManifest::new("en-US".to_string());
 
+        // [STEP 2]: Inject Circuit Breaker traits.
         manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(Direction::LTR));
         manifest.traits.insert(TraitKey::HasBidiElements, TraitValue::Boolean(false));
         manifest.traits.insert(TraitKey::RequiresShaping, TraitValue::Boolean(false));
@@ -296,15 +312,17 @@ impl LinguisticManager {
             .traits
             .insert(TraitKey::MorphologyType, TraitValue::MorphType(MorphType::FUSIONAL));
 
+        // [STEP 3]: Inject telemetry metadata.
         manifest.metadata.insert("registry_version".to_string(), "CIRCUIT_BREAKER".to_string());
         manifest.metadata.insert("resolution_path".to_string(), "DEGRADED_FALLBACK".to_string());
         manifest.metadata.insert("resolution_time_ms".to_string(), "0.0000".to_string());
 
+        // [STEP 4]: Return fallback manifest.
         manifest
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "simulation"))]
 mod tests {
     use super::*;
     use crate::data::repository::SimulatedSnapshotProvider;

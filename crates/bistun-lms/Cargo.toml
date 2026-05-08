@@ -1,45 +1,65 @@
 [package]
 name = "bistun-lms"
-version = "0.9.0"
+version = "1.0.0"
+description = "A thread-safe capability engine for resolving BCP 47 language tags into actionable rendering and parsing properties (directionality, morphology, segmentation). Features a wait-free, lock-free memory pool (ArcSwap) enabling zero-downtime registry hot-swaps for high-throughput NLP and UI pipelines."
+repository = "https://github.com/fwazeter/bistun"
+homepage = "https://github.com/fwazeter/bistun"
+documentation = "https://docs.rs/bistun-lms"
+readme = "README.md"
+keywords = ["i18n", "bcp47", "localization", "linguistics", "capability-engine"]
+categories = ["internationalization", "text-processing"]
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[dependencies]
-# Internal DNA link
-bistun-core = { workspace = true, features = ["persistence", "ops", "testing"] }
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
-# Engine requirements
-serde = { workspace = true }
+[features]
+# Standard servers get full async and file/network I/O out of the box.
+# WASM/Edge consumers can opt out via `default-features = false`.
+default = ["fs", "network", "async-worker"]
+
+# Enables FileSnapshotProvider
+fs = ["tokio/fs"]
+
+# Enables HttpSnapshotProvider
+network = ["dep:reqwest"]
+
+# Enables the background polling worker (forces Tokio runtime)
+async-worker = ["tokio/rt-multi-thread", "tokio/time"]
+
+# Enables the hermetic simulation data and dynamic Ed25519 key generation
+simulation = ["dep:rand", "ed25519-dalek/rand_core"]
+
+[dependencies]
+bistun-core = { workspace = true, features = ["persistence", "ops", "testing"] }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-hashbrown = { workspace = true }
-
-# Performance: High-speed collections for Flyweight pools
-tokio = {version="1.52.2", features = ["rt-multi-thread", "time", "fs"]}
-reqwest = "0.13.3"
-
 arc-swap = "1.9.1"
 
-# Cryptographic verification
-ed25519-dalek = { version = "2.2.0", features = ["rand_core"]}
-# older rand version used for compatibility with code structure in ed25519.
-rand = "0.8.5"
+# Concurrency & Async
+tokio = { version = "1.52.2", optional = true }
+
+# Optional Network I/O
+reqwest = { version = "0.13.3", optional = true }
+
+# Cryptographic verification (Verification only by default, no generation)
+ed25519-dalek = { version = "2.2.0" }
 base64 = "0.22.1"
 
+# Simulation / Golden Data
+rand = { version = "0.8.5", optional = true }
+
 [dev-dependencies]
-# Hermetic testing per LMS-TEST
 mockall = { workspace = true }
-# Required for statistically significant performance verification
 criterion = { version = "0.8.2", features = ["html_reports"] }
-# Manages temporary files
 tempfile = "3.27.0"
-axum = "0.8.9"
-http = "1.4.0"
-tokio = { version = "1.52.2", features=["full"] }
-tracing-subscriber = "0.3.23"
-tower = "0.5.3"
+tokio = { version = "1.52.2", features = ["full"] }
+
 
 [[bench]]
-name = "capability_engine"
+name = "performance_verification"
 harness = false
+required-features = ["simulation"]
