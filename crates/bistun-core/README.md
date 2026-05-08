@@ -100,7 +100,7 @@ fn main() -> Result<(), LmsError> {
 
 ---
 
-## 🛠️ Development & Contribution
+## 🛠️ Development & Extension
 
 ### 1. Building and Testing
 * **Check Data Rules**: `cargo test -p bistun-core --all-features`
@@ -113,6 +113,14 @@ To add a new linguistic property to the **System of Record**:
 3. **Verify**: Update the `simulation.rs` golden set and add a serialization test.
 
 ---
+
+## ⚖️ Legal & Contribution
+
+To maintain the integrity of the **Bistun System of Record**, all workspace members adhere to the global project standards:
+
+* **Security Policy**: Please review our [SECURITY.md](../../SECURITY.md) for reporting vulnerabilities and understanding our security tiers.
+* **Contribution Guidelines**: See our global [CONTRIBUTING.md](../../CONTRIBUTING.md) for details on the **LMS-TEST** and **LMS-DOC** standards required for all PRs.
+* **License**: This crate is licensed under the **GNU GPL v3**, as detailed in the root [LICENSE](../../LICENSE) file.
 
 ## V. Metadata
 * **Author**: Francis Xavier Wazeter IV
