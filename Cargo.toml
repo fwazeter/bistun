@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.9.0"
+version = "0.9.1"
 authors = ["Francis Xavier Wazeter IV"]
 edition = "2024"
 license = "GPL-3.0-or-later"
@@ -17,8 +17,8 @@ homepage = "https://github.com/fwazeter/bistun"
 
 [workspace.dependencies]
 # Internal Workspace Members
-bistun-core = { path = "crates/bistun-core", version = "1.0.0" }
-bistun-lms = { path = "crates/bistun-lms", version = "1.0.1" }
+bistun-core = { path = "crates/bistun-core", version = "1.0.1" }
+bistun-lms = { path = "crates/bistun-lms", version = "1.0.2" }
 
 # Production Dependencies (Shared)
 serde = { version = "1.0.228", features = ["derive"] }

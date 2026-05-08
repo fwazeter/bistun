@@ -24,8 +24,8 @@ fn main() {
     let priv_key_b64 = BASE64.encode(signing_key.to_bytes());
 
     println!("--------------------------------------------------");
-    println!("🔑 PUBLIC KEY (Paste this into CURATOR_PUBLIC_KEY in sidecar.rs):");
-    println!("{}", pub_key_b64);
+    println!("🔑 PUBLIC KEY (Paste this into your .env file):"); // [FIX]: Direct users to the .env file
+    println!("CURATOR_PUBLIC_KEY=\"{}\"", pub_key_b64); // [FIX]: Pre-formatted for easy copy/paste
     println!("--------------------------------------------------");
     println!("🤫 PRIVATE KEY (Keep secret! This is your root of trust):");
     println!("{}", priv_key_b64);
@@ -48,5 +48,5 @@ fn main() {
 
     println!("✅ SUCCESS: Snapshot signed.");
     println!("💾 Cryptographic signature written to: {}", sig_path);
-    println!("⚠️  FINAL STEP: Update your CURATOR_PUBLIC_KEY constant and restart the Sidecar.");
+    println!("⚠️  FINAL STEP: Update your CURATOR_PUBLIC_KEY in .env and restart the Sidecar."); // [FIX]: Updated instructions
 }

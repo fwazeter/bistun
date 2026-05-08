@@ -1,6 +1,6 @@
 [package]
 name = "bistun-lms"
-version = "1.0.1"
+version = "1.0.2"
 description = "A thread-safe capability engine for resolving BCP 47 language tags into actionable rendering and parsing properties (directionality, morphology, segmentation). Features a wait-free, lock-free memory pool (ArcSwap) enabling zero-downtime registry hot-swaps for high-throughput NLP and UI pipelines."
 repository = "https://github.com/fwazeter/bistun"
 homepage = "https://github.com/fwazeter/bistun"
@@ -31,10 +31,10 @@ network = ["dep:reqwest"]
 async-worker = ["tokio/rt-multi-thread", "tokio/time"]
 
 # Enables the hermetic simulation data and dynamic Ed25519 key generation
-simulation = ["dep:rand", "ed25519-dalek/rand_core"]
+simulation = ["dep:rand", "ed25519-dalek/rand_core", "bistun-core/testing"]
 
 [dependencies]
-bistun-core = { workspace = true, features = ["persistence", "ops", "testing"] }
+bistun-core = { workspace = true, features = ["persistence", "ops"] }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 arc-swap = "1.9.1"
@@ -58,8 +58,19 @@ criterion = { version = "0.8.2", features = ["html_reports"] }
 tempfile = "3.27.0"
 tokio = { version = "1.52.2", features = ["full"] }
 
-
 [[bench]]
 name = "performance_verification"
 harness = false
+required-features = ["simulation"]
+
+[[example]]
+name = "hot_swap_demo"
+path = "examples/hot_swap_demo.rs"
+# Requires the Tokio worker threads for background polling and simulation for fake keys
+required-features = ["async-worker", "simulation"]
+
+[[example]]
+name = "standalone_resolver"
+path = "examples/standalone_resolver.rs"
+# Only requires simulation data to boot; no background threads needed
 required-features = ["simulation"]

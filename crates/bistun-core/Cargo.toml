@@ -1,6 +1,6 @@
 [package]
 name = "bistun-core"
-version = "1.0.0"
+version = "1.0.1"
 repository = "https://github.com/fwazeter/bistun/tree/main/crates/bistun-core"
 description = "The authoritative Linguistic DNA models and DTOs for the Bistun LMS. Provides a high-performance, immutable contract layer for BCP 47 locale resolution, typographic traits, and linguistic metadata."
 authors.workspace = true
@@ -40,3 +40,9 @@ thiserror = { workspace = true }
 [dev-dependencies]
 # Required for hermetic serialization tests
 serde_json = { workspace = true }
+
+[[example]]
+name = "build_manifest"
+path = "examples/build_manifest.rs"
+# Ensure the core ops and serialization features are enabled to demonstrate the DTO
+required-features = ["ops", "persistence"]

@@ -1,18 +1,33 @@
 [package]
 name = "bistun-api"
-version.workspace = true
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 default-run = "bistun-api"
 
+[features]
+# By default, we enable local development tools and file-based hydration.
+default = ["fs", "dotenv", "curator"]
+
+# WORM Transport Pass-Throughs
+fs = ["bistun-lms/fs"]
+network = ["bistun-lms/network"]
+
+# Enables loading .env files from disk (Disable for strict K8s environments)
+dotenv = ["dep:dotenvy"]
+
+# Enables the Curator CLI tool (Pulls in heavy crypto generation math)
+curator = ["dep:rand", "dep:ed25519-dalek", "dep:base64"]
+
 [dependencies]
 # System integration
 bistun-core = { workspace = true }
-bistun-lms = { workspace = true }
+# Bypass workspace inheritance so we can enforce default-features = false
+bistun-lms = { path = "../bistun-lms", version = "1.0.1", default-features = false, features = ["async-worker"] }
 
-# Config & Environment v0.9.0
-dotenvy = { workspace = true }
+# Config & Environment
+dotenvy = { workspace = true, optional = true }
 serde = { workspace = true }
 tracing = { workspace = true }
 
@@ -23,7 +38,32 @@ tokio = { version = "1.37.0", features = ["full"] }
 # Observability formatters
 tracing-subscriber = "0.3.18"
 
-# Curator (Crypto) Requirements
-ed25519-dalek = { version = "2.1.1", features = ["rand_core"] }
-rand = "0.8.5"
-base64 = "0.22.1"
+# Curator (Crypto) Requirements (Opt-in only)
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"], optional = true }
+rand = { version = "0.8.5", optional = true }
+base64 = { version = "0.22.1", optional = true }
+serde_json = "1.0.149"
+
+[dev-dependencies]
+tower = { version = "0.5.3", features = ["util"] }
+# We require async_tokio to benchmark Axum handlers in-memory
+criterion = { version = "0.8.2", features = ["html_reports", "async_tokio"] }
+
+[[bin]]
+name = "bistun-api"
+path = "src/main.rs"
+
+[[bin]]
+name = "curator"
+path = "src/bin/curator.rs"
+required-features = ["curator"]
+
+[[bench]]
+name = "api_performance"
+harness = false
+
+[[example]]
+name = "embedded_server"
+path = "examples/embedded_server.rs"
+# We don't need network or curator features just to embed the router!
+required-features = ["fs"]
