@@ -13,6 +13,7 @@ authors = ["Francis Xavier Wazeter IV"]
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/fwazeter/bistun"
+homepage = "https://github.com/fwazeter/bistun"
 
 [workspace.dependencies]
 # Internal Workspace Members
