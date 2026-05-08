@@ -9,13 +9,11 @@ default:
 # --- QUALITY GATES (LMS-DOC & LMS-TEST) ---
 
 # Run the complete Quality Gate (Fmt -> Test -> Clippy -> Doc)
-#verify-all: fmt test-hermetic lint verify-docs
-#    @echo "All Engineering Standards passed."
 # root justfile
 verify-all:
     cargo fmt --all --check
-    cargo test --workspace
-    cargo clippy --workspace -- -D warnings
+    cargo test --workspace --all-features
+    cargo clippy --workspace --all-features -- -D warnings
 
 # Enforce standard formatting
 fmt:
@@ -35,10 +33,14 @@ verify-docs:
 
 # --- PERFORMANCE GATES (LMS-OPS) ---
 
-# Run the resolution pipeline benchmarks
+# Run the high-precision resolution pipeline benchmarks
+# Targeting bistun-lms explicitly and enabling the required simulation feature
 bench-critical:
-    cargo bench --bench performance_verification
+    cargo bench -p bistun-lms --bench performance_verification --features simulation
 
+# Run the API sidecar benchmarks
+bench-api:
+    cargo bench -p bistun-api --bench api_performance
 # --- UTILITIES ---
 
 # Initialize a new source file from the TEMPLATE
