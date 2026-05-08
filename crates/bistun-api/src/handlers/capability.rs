@@ -41,7 +41,7 @@ use tracing::{debug, instrument};
 /// # Logic Trace (Internal)
 /// 1. Extract the `locale` string from the URL path via the Axum extractor.
 /// 2. Delegate the tag to the [`LinguisticManager`] for the 5-Phase resolution pipeline.
-/// 3. If successful, wrap the immutable [`CapabilityManifest`] in a `200 OK` JSON response.
+/// 3. If successful, wrap the immutable [`bistun_core::CapabilityManifest`] in a `200 OK` JSON response.
 /// 4. If an error occurs, the `?` operator triggers an automatic conversion to [`AppError`] for HTTP mapping.
 ///
 /// # Examples

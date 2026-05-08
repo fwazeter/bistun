@@ -66,7 +66,7 @@ pub struct HealthResponse {
 /// # Errors, Panics, & Safety
 /// * **Errors**: None. This endpoint returns health status even in degraded modes.
 /// * **Panics**: None.
-/// * **Safety**: Safe synchronous execution using non-blocking [`RwLock`] reads.
+/// * **Safety**: Safe synchronous execution using non-blocking [`std::sync::RwLock`] reads.
 pub async fn health_handler(State(manager): State<LinguisticManager>) -> impl IntoResponse {
     // [STEP 1]: Capture current engine telemetry
     let health = HealthResponse { status: manager.status(), metrics: manager.metrics() };
