@@ -8,7 +8,10 @@ default-run = "bistun-api"
 
 [features]
 # By default, we enable local development tools and file-based hydration.
-default = ["fs", "dotenv", "curator"]
+default = ["fs", "dotenv", "curator", "simulation"]
+
+# Enables safe default for zero-config developer onboarding
+simulation = ["bistun-lms/simulation"]
 
 # WORM Transport Pass-Throughs
 fs = ["bistun-lms/fs"]

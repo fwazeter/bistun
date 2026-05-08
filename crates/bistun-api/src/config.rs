@@ -37,8 +37,8 @@ pub struct AppConfig {
     pub lms_registry_url: Option<String>,
     /// The connection string for the primary system database.
     pub database_url: Option<String>,
-    /// The Ed25519 Public Key used to verify the integrity of the WORM payload.
-    pub curator_public_key: String,
+    /// The Ed25519 Public Key used to verify the integrity of the WORM payload. Option to prevent panics.
+    pub curator_public_key: Option<String>,
 }
 
 impl AppConfig {
@@ -56,9 +56,6 @@ impl AppConfig {
     /// # Examples
     /// ```rust
     /// # use bistun_api::config::AppConfig;
-    /// # // [STEP 0]: Inject dummy key to satisfy doctest environment
-    /// # std::env::set_var("CURATOR_PUBLIC_KEY", "dummy_verification_key");
-    /// #
     /// // Standard initialization during sidecar boot
     /// let config = AppConfig::load();
     /// assert_eq!(config.lms_env, "development");
@@ -83,13 +80,11 @@ impl AppConfig {
         #[cfg(feature = "dotenv")]
         let _ = dotenvy::dotenv();
 
-        // [STEP 2, 3 & 4]: Construct from Env
         Self {
             lms_env: env::var("LMS_ENV").unwrap_or_else(|_| "development".to_string()),
             lms_registry_url: env::var("LMS_REGISTRY_URL").ok(),
             database_url: env::var("DATABASE_URL").ok(),
-            curator_public_key: env::var("CURATOR_PUBLIC_KEY")
-                .expect("CRITICAL: CURATOR_PUBLIC_KEY must be set in env to verify payloads"),
+            curator_public_key: env::var("CURATOR_PUBLIC_KEY").ok(), // Safe Fallback
         }
     }
 }

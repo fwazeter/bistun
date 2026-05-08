@@ -31,6 +31,8 @@ use bistun_api::routes;
 use bistun_core::ops::SdkState;
 use bistun_lms::LinguisticManager;
 use tracing::{error, info};
+#[cfg(feature = "simulation")]
+use bistun_lms::data::repository::SimulatedSnapshotProvider;
 
 /// Initializes the runtime environment and starts the asynchronous API server.
 ///
@@ -80,30 +82,41 @@ async fn main() {
     let manager = LinguisticManager::new();
 
     // [STEP 4 & 5]: Dynamic Hydration Routing & Security Gate
+    let has_snapshot = std::path::Path::new("data/snapshot.json").exists();
+
     if let Some(url) = &config.lms_registry_url {
         #[cfg(feature = "network")]
         {
-            info!("📡 Network Hydration selected. Fetching from: {}", url);
+            let pub_key = config.curator_public_key.as_deref().expect("CRITICAL: Remote hydration requires CURATOR_PUBLIC_KEY");
             let provider = bistun_lms::data::providers::HttpSnapshotProvider::new(url.clone());
-            manager.initialize(&provider, &config.curator_public_key).await;
+            manager.initialize(&provider, pub_key).await;
         }
-        #[cfg(not(feature = "network"))]
-        panic!(
-            "CRITICAL: LMS_REGISTRY_URL ({}) is set, but the 'network' feature is disabled!",
-            url
-        );
-    } else {
+    } else if has_snapshot {
         #[cfg(feature = "fs")]
         {
             info!("💾 Local Disk Hydration selected. Fetching from data/ directory...");
+            let pub_key = config.curator_public_key.as_deref().expect("CRITICAL: Disk hydration requires CURATOR_PUBLIC_KEY");
             let provider = bistun_lms::data::providers::FileSnapshotProvider::new(
                 "data/snapshot.json".to_string(),
                 "data/snapshot.sig".to_string(),
             );
-            manager.initialize(&provider, &config.curator_public_key).await;
+            manager.initialize(&provider, pub_key).await;
         }
-        #[cfg(not(feature = "fs"))]
-        panic!("CRITICAL: No LMS_REGISTRY_URL provided, and the 'fs' feature is disabled!");
+    } else if config.lms_env == "development" {
+        // [SAFE DEFAULT]: Autoload simulation if no files or env variables exist
+        #[cfg(feature = "simulation")]
+        {
+            info!("🧪 Zero-Config Boot: Autoloading Simulated Data (Development Mode)...");
+            let provider = SimulatedSnapshotProvider::new();
+            // The simulation provider dynamically generates a valid pair, bypassing the config requirement
+            manager.initialize(&provider, &provider.public_key).await;
+        }
+        #[cfg(not(feature = "simulation"))]
+        {
+            panic!("CRITICAL: Missing configuration, and 'simulation' feature is disabled.");
+        }
+    } else {
+        panic!("CRITICAL: Production boot failed. Missing CURATOR_PUBLIC_KEY or data/snapshot.json!");
     }
 
     // Validation check for registry state
