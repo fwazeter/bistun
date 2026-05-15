@@ -121,7 +121,7 @@ impl ISnapshotProvider for SimulatedSnapshotProvider {
 /// 2. Verify the payload's cryptographic signature via the security module.
 /// 3. Parse the `JSON` `WORM` payload into the internal [`WormPayload`] `DTO`.
 /// 4. Create an isolated, fresh [`RegistryStore`].
-/// 5. Inject the parsed authoritative identity ([`RegistryMetadata`]) into the store.
+/// 5. Inject the parsed authoritative identity ([`bistun_core::RegistryMetadata`]) into the store.
 /// 6. Inject the arrays of Flyweights and dynamic aliases into the store's maps.
 /// 7. Yield the hydrated store to be hot-swapped into the active state.
 ///
