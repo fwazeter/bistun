@@ -38,6 +38,8 @@
 
 use crate::security::verifier;
 use bistun_core::{LmsError, RegistryStore, WormPayload};
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -46,6 +48,14 @@ use std::pin::Pin;
 /// Time: `O(1)` | Space: `O(1)`
 pub type PayloadFuture<'a> =
     Pin<Box<dyn Future<Output = Result<(String, String), LmsError>> + Send + 'a>>;
+
+/// A lightweight envelope used exclusively for Pre-Crypto Header Validation.
+/// By ignoring the massive data arrays of the full `WormPayload`, this allows
+/// us to inspect the headers in sub-millisecond time.
+#[derive(Debug, Deserialize)]
+struct WormEnvelope {
+    metadata: HashMap<String, String>,
+}
 
 /// Interface for retrieving the `WORM` payload, enabling Dependency Inversion.
 pub trait ISnapshotProvider: Send + Sync {
@@ -110,6 +120,56 @@ impl ISnapshotProvider for SimulatedSnapshotProvider {
     }
 }
 
+/// Validates the mandatory metadata headers before executing heavy cryptography.
+///
+/// Time: O(1) relative to payload depth | Space: O(1) for header map
+///
+/// # Logic Trace (Internal)
+/// 1. [Lightweight Parse]: Extract only the metadata map from the raw JSON string.
+/// 2. [Schema Check]: Enforce the presence and validity of the `schema_version`.
+/// 3. [Temporal Check]: Enforce the presence of the `build_date`.
+/// 4. [Return]: Bubble up `SecurityFault` if the envelope is malformed or invalid.
+fn validate_pre_crypto_headers(json_payload: &str) -> Result<(), LmsError> {
+    let envelope: WormEnvelope =
+        serde_json::from_str(json_payload).map_err(|e| LmsError::SecurityFault {
+            pipeline_step: "Phase 0: WORM Hydration".to_string(),
+            context: "Header Validation".to_string(),
+            reason: format!("Payload lacks a valid metadata envelope: {e}"),
+        })?;
+
+    // Validate Schema Version
+    let schema = envelope.metadata.get("version").ok_or_else(|| LmsError::SecurityFault {
+        pipeline_step: "Phase 0: WORM Hydration".to_string(),
+        context: "Header Validation".to_string(),
+        reason: "Missing mandatory 'version' header".to_string(),
+    })?;
+
+    // Allow both v1 and v2 standard/simulated versions
+    if !schema.starts_with("v1.")
+        && !schema.starts_with("v2.")
+        && schema != "1.0.0"
+        && schema != "2.0.0"
+    {
+        return Err(LmsError::SecurityFault {
+            pipeline_step: "Phase 0: WORM Hydration".to_string(),
+            context: "Header Validation".to_string(),
+            reason: format!("Unsupported registry version: {schema}"),
+        });
+    }
+
+    // Validate Build Date
+    if !envelope.metadata.contains_key("build_date") {
+        return Err(LmsError::SecurityFault {
+            pipeline_step: "Phase 0: WORM Hydration".to_string(),
+            context: "Header Validation".to_string(),
+            reason: "Missing mandatory 'build_date' header. Cannot prevent replay attacks."
+                .to_string(),
+        });
+    }
+
+    Ok(())
+}
+
 // -------------------------------------------------------------------
 
 /// Hydrates a fresh `RegistryStore` from a dynamically injected provider.
@@ -155,6 +215,13 @@ pub async fn hydrate_snapshot(
 ) -> Result<RegistryStore, LmsError> {
     // [STEP 1]: Fetch Payload
     let (json_payload, signature) = provider.fetch_payload().await?;
+
+    // =========================================================================
+    // NEW HARDENING: PHASE 1.1 (PRE-CRYPTO HEADER VALIDATION)
+    // =========================================================================
+    // [STEP 1.5]: Reject malformed payloads before burning CPU on Ed25519 math.
+    validate_pre_crypto_headers(&json_payload)?;
+    // =========================================================================
 
     // [STEP 2]: Security Gate [Ref: 006-LMS-SEC]
     verifier::verify_snapshot(&json_payload, &signature, public_key_b64)?;

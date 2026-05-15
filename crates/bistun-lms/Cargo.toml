@@ -5,7 +5,7 @@
 
 [package]
 name = "bistun-lms"
-version = "2.0.0"
+version = "2.1.0"
 description = "A thread-safe capability engine for resolving BCP 47 language tags into actionable rendering and parsing properties (directionality, morphology, segmentation). Features a wait-free, lock-free memory pool (ArcSwap) enabling zero-downtime registry hot-swaps for high-throughput NLP and UI pipelines."
 repository = "https://github.com/fwazeter/bistun/tree/main/crates/bistun-lms"
 keywords = ["i18n", "bcp47", "localization", "linguistics", "capability-engine"]
@@ -55,6 +55,7 @@ simulation = ["dep:rand", "ed25519-dalek/rand_core", "bistun-core/testing"]
 # ---------------------------------------------------------------------
 [dependencies]
 bistun-core = { workspace = true, features = ["persistence", "ops"] }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tracing = { workspace = true }      # Mandatory for SLI observability
 arc-swap = "1.9.1"                  # Wait-free, lock-free memory pool
@@ -68,6 +69,10 @@ reqwest = { workspace = true, optional = true }
 # Cryptographic verification
 ed25519-dalek = { workspace = true }
 base64 = { workspace = true }
+
+# WASM Compatibility
+# web-time acts as a drop-in replacement for std::time that won't panic in browsers
+web-time = "1.1.0"
 
 # Simulation / Golden Data
 rand = { workspace = true, optional = true }

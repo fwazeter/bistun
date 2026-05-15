@@ -21,6 +21,15 @@
 //! **Why**: This module acts as the primary orchestrator for the 5-Phase Capability Pipeline. It routes requests through the Taxonomic Resolver, Typological Aggregator, and Orthographic Extension mapper to synthesize a finalized manifest.
 //! **Impact**: If this module or its internal routing is misconfigured, the service boundaries will fail to communicate, preventing the transformation of raw BCP 47 tags into actionable rendering instructions.
 //!
+//! ### The 5-Phase Pipeline Architecture
+//! This module houses the isolated domains that execute the resolution pipeline:
+//! 1. **Phase 1 (Resolve)**: [`crate::core::resolver`] - The Taxonomic Chain of Responsibility (BCP 47).
+//! 2. **Phase 2 (Aggregate)**: [`crate::core::aggregator`] - The Typological High-Water Mark engine (ISO 639-3).
+//! 3. **Phase 2.5 (Synthesize & Resource)**: [`crate::core::synthesizer`], [`crate::core::resource`] - The Logic Bridge mapping traits to execution rules and physical ICU4X assets.
+//! 4. **Phase 3 (Override)**: [`crate::core::extension`] - The BCP 47 `-u-` subtag mutator.
+//! 5. **Phase 4 (Integrity)**: Handled externally by `crate::validation`.
+//! 6. **Phase 5 (Telemetry)**: Handled globally by `crate::ops::telemetry`.
+//!
 //! ### Glossary
 //! * **Capability Pipeline**: The sequential execution of 5 distinct phases (Resolve, Aggregate, Override, Integrity, Telemetry) to hydrate a manifest.
 //! * **Orchestration**: The process of coordinating sub-engine execution without embedding specific business logic in the dispatcher.
@@ -36,4 +45,10 @@ pub mod pipeline;
 
 /// Phase 1: Resolves BCP 47 tags via the Chain of Responsibility.
 pub mod resolver;
+/// Phase 2.5: Logic Bridge mapping traits to execution rules and physical ICU4X assets
 pub mod resource;
+/// Phase 2.5: Logic Bridge mapping traits to execution rules and physical ICU4X assets
+pub mod synthesizer;
+
+// Expose the orchestrator securely
+pub use pipeline::generate_manifest;

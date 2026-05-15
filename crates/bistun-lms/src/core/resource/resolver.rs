@@ -36,7 +36,7 @@ use bistun_core::manifest::CapabilityManifest;
 /// 1. Check if the [`CapabilityManifest`] requires any resources. If not, return early.
 /// 2. Format the environment-specific `base_uri` to guarantee proper trailing slashes.
 /// 3. Iterate over the abstract `IDs` (keys) in the `manifest.resources` map.
-/// 4. Concatenate the base `URI` with the abstract `ID` (appending a `.dat` extension).
+/// 4. Concatenate the base `URI` with the abstract `ID` (appending a `.postcard` extension).
 /// 5. Update the resource value in-place with the fully resolved `URI`.
 /// 6. Return success.
 ///
@@ -50,7 +50,7 @@ use bistun_core::manifest::CapabilityManifest;
 /// resolve_resources(&mut manifest, "https://cdn.bistun.io/").expect("LMS-TEST: Resolution failed");
 /// assert_eq!(
 ///     manifest.resources.get("tri_thai").expect("LMS-TEST: Key missing"),
-///     "https://cdn.bistun.io/tri_thai.dat"
+///     "https://cdn.bistun.io/tri_thai.postcard"
 /// );
 /// ```
 ///
@@ -63,7 +63,7 @@ use bistun_core::manifest::CapabilityManifest;
 ///
 /// # Golden I/O
 /// * **Input**: `manifest` (with `resources: {"tri_thai": "required"}`), `base_uri: "https://cdn.bistun.io/"`
-/// * **Output**: `Ok(())` (manifest resources mutated to `"https://cdn.bistun.io/tri_thai.dat"`)
+/// * **Output**: `Ok(())` (manifest resources mutated to `"https://cdn.bistun.io/tri_thai.postcard"`)
 ///
 /// # Errors
 /// * Conforms to pipeline signature returning [`LmsError`], but currently infallible as it only performs string concatenation.
@@ -88,7 +88,7 @@ pub fn resolve_resources(
 
     // [STEP 3, 4 & 5]: Iterate, format, and update values in-place
     for (resource_id, uri_value) in &mut manifest.resources {
-        *uri_value = format!("{formatted_base}{resource_id}.dat");
+        *uri_value = format!("{formatted_base}{resource_id}.postcard");
     }
 
     // [STEP 6]: Return Success
@@ -113,7 +113,7 @@ mod tests {
         // [STEP 3]: Assert: Verify the value was mutated in-place
         assert_eq!(
             manifest.resources.get("tri_thai").expect("LMS-TEST: Resource tri_thai missing"),
-            "https://cdn.example.com/assets/tri_thai.dat"
+            "https://cdn.example.com/assets/tri_thai.postcard"
         );
     }
 
@@ -127,7 +127,7 @@ mod tests {
 
         assert_eq!(
             manifest.resources.get("icu_arab").expect("LMS-TEST: Resource icu_arab missing"),
-            "https://cdn.example.com/assets/icu_arab.dat"
+            "https://cdn.example.com/assets/icu_arab.postcard"
         );
     }
 

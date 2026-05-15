@@ -27,7 +27,7 @@ pub enum SdkState {
 /// Tracks the operational health and synchronization history of the capability engine.
 ///
 /// Time: O(1) | Space: O(1)
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SyncMetrics {
     /// Unix timestamp of the last time the worker attempted to fetch a snapshot.
     pub last_attempted_sync: u64,
@@ -41,7 +41,7 @@ pub struct SyncMetrics {
 /// Ref: [007-LMS-OPS]
 ///
 /// Time: O(1) | Space: O(1)
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResolutionMetrics {
     /// Total number of manifests generated.
     pub total_manifests_resolved: u64,

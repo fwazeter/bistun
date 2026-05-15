@@ -2,7 +2,7 @@
 
 [![Domain: Linguistic DNA (Foundation)](https://img.shields.io/badge/Domain-Linguistic_DNA_(Foundation)-blue.svg)](#)
 [![Status: Production](https://img.shields.io/badge/Status-Production-green.svg)](#)
-[![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-gold.svg)](#)
+[![Version: 2.0.1](https://img.shields.io/badge/Version-2.0.1-gold.svg)](#)
 
 ---
 

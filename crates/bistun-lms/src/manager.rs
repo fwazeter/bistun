@@ -34,7 +34,7 @@ use bistun_core::{
     SdkState, SegType, SyncMetrics, TraitKey, TraitValue, TransRule,
 };
 use std::sync::{Arc, RwLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(feature = "async-worker")]
 use std::time::Duration;
@@ -92,10 +92,12 @@ impl LinguisticManager {
     ///
     /// Time: `O(1)` | Space: `O(1)`
     ///
-    /// # Errors, Panics, & Safety
+    /// # Panics
     /// * **Panics**: Panics if the system clock moved backwards from the ``UNIX_EPOCH``.
     #[must_use]
     fn now_secs() -> u64 {
+        // web_time acts as a drop-in replacement.
+        // On native targets, it uses std::time. On WASM, it uses JS Date.now().
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("LMS-OPS: System clock moved backwards")

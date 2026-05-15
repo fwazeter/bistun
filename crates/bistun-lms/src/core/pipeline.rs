@@ -16,7 +16,7 @@
 
 //! # The Capability Engine Coordinator
 //! Crate: `bistun-lms`
-//! Ref: [001-LMS-CORE], [011-LMS-DTO]
+//! Ref: [001-LMS-CORE], [011-LMS-DTO], [013-LMS-RULE]
 //! Location: `crates/bistun-lms/src/core/pipeline.rs`
 //!
 //! **Why**: This module executes the 5-Phase pipeline to transform a `BCP 47` string into an immutable `CapabilityManifest` using the dynamic memory pool.
@@ -24,11 +24,13 @@
 //!
 //! ### Glossary
 //! * **Coordinator**: The central orchestrator that manages the sequential execution of the 5-Phase pipeline without containing business logic itself.
+//! * **Logic Bridge**: The sub-phase (2.5) where static traits are synthesized into actionable rules and physical resource URIs.
 
-use crate::core::aggregator::typology::aggregate; // [FIX]: Directly import the function
+use crate::core::aggregator::typology::aggregate;
 use crate::core::extension::orthography;
 use crate::core::resolver::orchestrator;
-use crate::core::resource;
+use crate::core::resource::resolver::resolve_resources;
+use crate::core::synthesizer::rules::synthesize_rules;
 use crate::data::swap::IRegistryState;
 use crate::ops::telemetry;
 use crate::validation::integrity;
@@ -44,8 +46,8 @@ use tracing::{debug, info, instrument};
 /// # Logic Trace (Internal)
 /// 1. **Phase 1 (Resolve)**: Pass the raw tag and state to the Taxonomic resolver.
 /// 2. **Fetch Profile**: Retrieve the exact `LocaleProfile` from the dynamic Flyweight pool.
-/// 3. **Phase 2 (Aggregate)**: Hydrate Typology, Rules, and Resources directly from the `LocaleProfile`.
-/// 4. **Phase 2.5 (Resource Bridge)**: Transform abstract resource `IDs` into physical `URIs`.
+/// 3. **Phase 2 (Aggregate)**: Hydrate Typological traits directly from the `LocaleProfile`.
+/// 4. **Phase 2.5 (Logic Bridge)**: Synthesize functional rules and resolve physical resource URIs.
 /// 5. **Phase 3 (Override)**: Parse `BCP 47` extensions and inject into the `extensions` map.
 /// 6. **Phase 4 (Integrity)**: Verify the fully aggregated manifest for mechanical contradictions.
 /// 7. **Phase 5 (Telemetry)**: Record the pipeline duration and resolution path.
@@ -101,12 +103,20 @@ pub fn generate_manifest(
 
     let mut manifest = CapabilityManifest::new(locale.id.clone());
 
-    // [STEP 3]: Phase 2: Aggregate (Typology, Rules, Resources)
-    aggregate(&mut manifest, &profile)?; // [FIX]: Now calls the directly imported function
+    // [STEP 3]: Phase 2: Aggregate (Typology)
+    aggregate(&mut manifest, &profile)?;
 
-    // [STEP 4]: Phase 2.5: The Resource Bridge [Ref: 014-LMS-BRDG]
-    // Fetches the environment-specific URI without locks and resolves abstract IDs
-    resource::resolver::resolve_resources(&mut manifest, &state.get_base_resource_uri())?;
+    // =========================================================================
+    // NEW LOGIC BRIDGE: PHASE 2.5
+    // =========================================================================
+
+    // [STEP 4]: Phase 2.5: Logic Bridge (Rules & Resources) [Ref: 013-LMS-RULE, 014-LMS-BRDG]
+    synthesize_rules(&mut manifest)?;
+
+    let base_uri = state.get_base_resource_uri();
+    resolve_resources(&mut manifest, &base_uri)?;
+
+    // =========================================================================
 
     // [STEP 5]: Phase 3: Override (Extensions)
     orthography::apply_extensions(&mut manifest, raw_tag)?;
