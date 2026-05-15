@@ -15,77 +15,67 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Orthographic Extension Mapper
-//! Ref: [004-LMS-EXT]
-//! Location: `src/core/extension/orthography.rs`
+//! Crate: `bistun-lms`
+//! Ref: [004-LMS-EXT], [011-LMS-DTO]
+//! Location: `crates/bistun-lms/src/core/extension/orthography.rs`
 //!
-//! **Why**: This module serves as Phase 3 (Override/Extension) of the pipeline. It maps the mechanical rendering requirements (Directionality, Bidi) of a script into the manifest, applying any necessary Unicode (-u-) overrides.
-//! **Impact**: If this module fails, UIs will render text in the wrong direction (e.g., Arabic rendering LTR), causing catastrophic unreadability for RTL and TTB languages.
+//! **Why**: This module serves as Phase 3 (Override/Extension) of the pipeline. It parses user-requested `BCP 47` subtags (like `-u-`) and injects them into the decoupled `extensions` map.
+//! **Impact**: If this module fails, user runtime overrides (like requesting a Latin calendar in an Arabic UI) will be ignored, breaking user experience and personalization logic.
 //!
 //! ### Glossary
-//! * **Bidi (Bidirectional)**: Text that contains both LTR and RTL scripts natively, requiring complex shaping and layout algorithms.
+//! * **Extension Subtag**: A `BCP 47` singleton (like `-u-` for Unicode or `-t-` for Transform) used to modify the default behavior of a locale.
 
-use crate::data::store::LocaleProfile;
 use bistun_core::error::LmsError;
-use bistun_core::manifest::{CapabilityManifest, TraitValue};
-use bistun_core::traits::TraitKey;
+use bistun_core::manifest::CapabilityManifest;
 
-/// Enriches and overrides the `CapabilityManifest` with Orthographic traits and Unicode extensions.
+/// Parses `BCP 47` `-u-` Unicode extensions and injects them into the manifest's `extensions` map.
 ///
-/// Time: O(N) string traversal | Space: O(1)
+/// Time: `O(N)` string traversal | Space: `O(1)`
 ///
 /// # Logic Trace (Internal)
-/// 1. Insert mechanical default rendering traits (`PrimaryDirection`, `HasBidiElements`, `RequiresShaping`) from the Flyweight profile.
-/// 2. Scan the `raw_tag` for the `-u-` singleton sequence.
-/// 3. If `-u-nu` (Numbers) or `-u-ca-` (Calendar) are found, extract their associated values via iterator and inject them into the manifest.
-/// 4. Return successful completion.
+/// 1. Scan the `raw_tag` for the `-u-` singleton sequence.
+/// 2. If the Unicode sequence is found, instantiate a zero-allocation string splitter.
+/// 3. Extract recognized keys (`nu` for Numbers, `ca` for Calendar) and map their values into `manifest.extensions`.
+/// 4. Return successful completion without mutating the `traits` map.
 ///
 /// # Examples
 /// ```rust
-/// # use bistun_core::CapabilityManifest;
-/// # use bistun_lms::core::extension::orthography::apply_rendering_traits;
-/// # use bistun_lms::data::store::LocaleProfile;
-/// # use bistun_core::traits::{MorphType, SegType, Direction, NormType, TransType};
-/// # let profile = LocaleProfile { id: "en-US".to_string(), morph: MorphType::FUSIONAL, base_seg: SegType::SPACE, alt_seg: None, direction: Direction::LTR, has_bidi: false, requires_shaping: false, plurals: vec![], unicode_blocks: vec![], normalization: NormType::NFC, transliteration: TransType::NONE, required_resource: None };
-/// # let mut manifest = CapabilityManifest::new("en-US".to_string());
-/// apply_rendering_traits(&mut manifest, &profile, "en-US-u-nu-latn").unwrap();
+/// # use bistun_core::manifest::CapabilityManifest;
+/// # use bistun_lms::core::extension::orthography::apply_extensions;
+/// let mut manifest = CapabilityManifest::new("ar-EG-u-nu-latn".to_string());
+/// apply_extensions(&mut manifest, "ar-EG-u-nu-latn-ca-gregory")
+///     .expect("LMS-TEST: Failed to apply extensions");
+/// assert_eq!(manifest.extensions.get("nu").expect("LMS-TEST: Missing key"), "latn");
 /// ```
 ///
 /// # Arguments
-/// * `manifest` (&mut CapabilityManifest): The mutable DTO being hydrated through the pipeline.
-/// * `profile` (&LocaleProfile): The read-only Flyweight profile containing typological/orthographic defaults.
-/// * `raw_tag` (&str): The raw BCP 47 language tag requested, parsed for Unicode extensions.
+/// * `manifest` (&mut `CapabilityManifest`): The mutable `DTO` being hydrated through the pipeline.
+/// * `raw_tag` (&str): The raw `BCP 47` language tag requested, parsed for Unicode extensions.
 ///
 /// # Returns
-/// * `Result<(), LmsError>`: Returns `Ok(())` upon successful hydration of the manifest.
+/// * `Result<(), LmsError>`: Returns `Ok(())` upon successful parsing and injection.
 ///
 /// # Golden I/O
-/// * **Input**: `manifest`, `profile`, `"en-US-u-nu-latn-ca-gregory"`
-/// * **Output**: `Ok(())` (Manifest updated with `NumberingSystem: "latn"` and `Calendar: "gregory"`)
+/// * **Input**: `manifest`, `"ar-EG-u-nu-latn-ca-gregory"`
+/// * **Output**: `Ok(())` (Manifest updated with `extensions: {"nu": "latn", "ca": "gregory"}`)
 ///
-/// # Errors, Panics, & Safety
-/// * **Errors**: Conforms to pipeline signature returning `Result`, but currently infallible.
-/// * **Panics**: None.
-/// * **Safety**: Safe synchronous execution with zero heap allocations for tag parsing.
-pub fn apply_rendering_traits(
-    manifest: &mut CapabilityManifest,
-    profile: &LocaleProfile,
-    raw_tag: &str,
-) -> Result<(), LmsError> {
-    // [STEP 1]: Base hydration of default rendering traits
-    manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(profile.direction));
-    manifest.traits.insert(TraitKey::HasBidiElements, TraitValue::Boolean(profile.has_bidi));
-    manifest
-        .traits
-        .insert(TraitKey::RequiresShaping, TraitValue::Boolean(profile.requires_shaping));
-
-    // [STEP 2]: Extension Parsing (BCP 47 `-u-`)
+/// # Errors
+/// * While the function signature allows for an `LmsError`, current parsing logic is internal and essentially infallible; future validation logic for subtag values may return `LmsError::ExtensionMappingFailure`.
+///
+/// # Panics
+/// * None.
+///
+/// # Safety
+/// * Safe synchronous execution with zero heap allocations for tag parsing.
+pub fn apply_extensions(manifest: &mut CapabilityManifest, raw_tag: &str) -> Result<(), LmsError> {
+    // [STEP 1]: Extension Parsing (BCP 47 `-u-`)
     if let Some(u_ext_start) = raw_tag.find("-u-") {
         let extension_subtag = &raw_tag[u_ext_start + 3..];
 
-        // Zero-allocation iterator parsing to protect the < 1ms budget
+        // [STEP 2]: Zero-allocation iterator parsing to protect the < 1ms budget
         let mut iter = extension_subtag.split('-');
 
-        // [STEP 3]: Override Execution
+        // [STEP 3]: Override Injection (into the decoupled Extensions map)
         while let Some(part) = iter.next() {
             // If we hit another BCP 47 singleton (e.g., -t- or -x-), the -u- block is over.
             if part.len() == 1 {
@@ -95,19 +85,15 @@ pub fn apply_rendering_traits(
             match part {
                 "nu" => {
                     if let Some(val) = iter.next() {
-                        manifest
-                            .traits
-                            .insert(TraitKey::NumberingSystem, TraitValue::String(val.to_string()));
+                        manifest.extensions.insert("nu".to_string(), val.to_string());
                     }
                 }
                 "ca" => {
                     if let Some(val) = iter.next() {
-                        manifest
-                            .traits
-                            .insert(TraitKey::Calendar, TraitValue::String(val.to_string()));
+                        manifest.extensions.insert("ca".to_string(), val.to_string());
                     }
                 }
-                _ => continue,
+                _ => {} // Redundant 'continue' removed to satisfy Clippy
             }
         }
     }
@@ -119,83 +105,42 @@ pub fn apply_rendering_traits(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bistun_core::traits::{Direction, MorphType, NormType, SegType, TransType};
-
-    /// Internal helper to generate a mock Flyweight profile for hermetic testing.
-    fn create_mock_profile(
-        direction: Direction,
-        has_bidi: bool,
-        requires_shaping: bool,
-    ) -> LocaleProfile {
-        LocaleProfile {
-            id: "test".to_string(),
-            morph: MorphType::ISOLATING,
-            base_seg: SegType::SPACE,
-            alt_seg: None,
-            direction,
-            has_bidi,
-            requires_shaping,
-            plurals: vec!["other".to_string()],
-            unicode_blocks: vec![],
-            normalization: NormType::NFC,
-            transliteration: TransType::NONE,
-            required_resource: None,
-        }
-    }
 
     #[test]
     fn test_apply_unicode_overrides() {
         // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Create manifest and LTR mock profile.
+        // [STEP 1]: Setup: Create an empty V2 manifest.
+        let mut manifest = CapabilityManifest::new("ar-EG-u-nu-latn-ca-gregory".to_string());
+
+        // [STEP 2]: Execute: Pass the tag with Number (-nu-) and Calendar (-ca-) extensions.
+        assert!(apply_extensions(&mut manifest, "ar-EG-u-nu-latn-ca-gregory").is_ok());
+
+        // [STEP 3]: Assert: Verify the extensions map was populated securely.
+        assert_eq!(manifest.extensions.get("nu").expect("LMS-TEST: Missing key"), "latn");
+        assert_eq!(manifest.extensions.get("ca").expect("LMS-TEST: Missing key"), "gregory");
+
+        // Assert: Verify the traits map was completely untouched!
+        assert!(manifest.traits.is_empty());
+    }
+
+    #[test]
+    fn test_no_extensions_present() {
         let mut manifest = CapabilityManifest::new("en-US".to_string());
-        let profile = create_mock_profile(Direction::LTR, false, false);
 
-        // [STEP 2]: Execute: Pass a tag with Number (-nu-) and Calendar (-ca-) extensions.
-        assert!(
-            apply_rendering_traits(&mut manifest, &profile, "en-US-u-nu-latn-ca-gregory").is_ok()
-        );
+        assert!(apply_extensions(&mut manifest, "en-US").is_ok());
 
-        // [STEP 3]: Assert: Verify the override execution mapped correctly.
-        assert_eq!(
-            manifest.traits.get(&TraitKey::NumberingSystem),
-            Some(&TraitValue::String("latn".to_string()))
-        );
-        assert_eq!(
-            manifest.traits.get(&TraitKey::Calendar),
-            Some(&TraitValue::String("gregory".to_string()))
-        );
+        // Ensure no false positives were injected
+        assert!(manifest.extensions.is_empty());
     }
 
     #[test]
-    fn test_apply_rtl_bidi_traits() {
-        // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Create manifest and RTL mock profile.
-        // [STEP 2]: Execute: Run orthographic mapper.
-        // [STEP 3]: Assert: Verify RTL and Bidi flags are correctly inserted dynamically.
-        let mut manifest = CapabilityManifest::new("ar-EG".to_string());
-        let profile = create_mock_profile(Direction::RTL, true, true);
+    fn test_singleton_boundary_respect() {
+        let mut manifest = CapabilityManifest::new("zh-Hant-u-nu-hanidec-t-zh-latn".to_string());
 
-        assert!(apply_rendering_traits(&mut manifest, &profile, "ar-EG").is_ok());
+        // We only parse the -u- block. Once we hit -t-, it should break out.
+        assert!(apply_extensions(&mut manifest, "zh-Hant-u-nu-hanidec-t-zh-latn").is_ok());
 
-        let dir = manifest.traits.get(&TraitKey::PrimaryDirection);
-        assert_eq!(dir, Some(&TraitValue::Direction(Direction::RTL)));
-
-        let bidi = manifest.traits.get(&TraitKey::HasBidiElements);
-        assert_eq!(bidi, Some(&TraitValue::Boolean(true)));
-    }
-
-    #[test]
-    fn test_apply_ttb_traits() {
-        // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Create manifest for Traditional Chinese mock profile.
-        // [STEP 2]: Execute: Run orthographic mapper.
-        // [STEP 3]: Assert: Verify Top-To-Bottom directionality is assigned dynamically.
-        let mut manifest = CapabilityManifest::new("zh-Hant".to_string());
-        let profile = create_mock_profile(Direction::TTB, false, false);
-
-        assert!(apply_rendering_traits(&mut manifest, &profile, "zh-Hant").is_ok());
-
-        let dir = manifest.traits.get(&TraitKey::PrimaryDirection);
-        assert_eq!(dir, Some(&TraitValue::Direction(Direction::TTB)));
+        assert_eq!(manifest.extensions.get("nu").expect("LMS-TEST: Missing key"), "hanidec");
+        assert!(manifest.extensions.get("zh").is_none()); // -t- content shouldn't bleed in
     }
 }

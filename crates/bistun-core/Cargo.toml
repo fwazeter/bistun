@@ -1,19 +1,39 @@
+# =====================================================================
+# BISTUN LMS: STANDARD CRATE TEMPLATE
+# Ref: [LMS-STACK], [LMS-DOC], [007-LMS-OPS]
+# =====================================================================
+
 [package]
 name = "bistun-core"
-version = "1.0.1"
-repository = "https://github.com/fwazeter/bistun/tree/main/crates/bistun-core"
+version = "2.0.0"
 description = "The authoritative Linguistic DNA models and DTOs for the Bistun LMS. Provides a high-performance, immutable contract layer for BCP 47 locale resolution, typographic traits, and linguistic metadata."
-authors.workspace = true
-edition.workspace = true
-license.workspace = true
+repository = "https://github.com/fwazeter/bistun/tree/main/crates/bistun-core"
 keywords = ["i18n", "bcp47", "linguistics", "metadata", "dto"]
 categories = ["internationalization", "data-structures"]
 readme = "README.md"
 documentation = "https://docs.rs/bistun-core"
+
+# Inherit global workspace standards to prevent metadata drift
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 homepage.workspace = true
 
+# ---------------------------------------------------------------------
+# DOCS.RS METADATA
+# Ensures that auto-generated documentation includes all feature-gated
+# code, preventing "missing documentation" confusion for external users.
+# ---------------------------------------------------------------------
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# ---------------------------------------------------------------------
+# FEATURE GATES
+# Enforces the "Zero-Overhead" principle. Only compile what is needed.
+# ---------------------------------------------------------------------
 [features]
-# Baseline: traits, manifest, and error are always included.
+# Baseline execution limits
 default = []
 
 # Persistence: Includes registry models and WORM persistence structures.
@@ -28,19 +48,35 @@ testing = []
 # Full: Convenience feature for local development.
 full = ["persistence", "ops", "testing"]
 
+# ---------------------------------------------------------------------
+# DEPENDENCIES
+# Use `workspace = true` whenever possible to ensure version lockstep.
+# ---------------------------------------------------------------------
 [dependencies]
 # Core serialization for DTOs per 011-LMS-DTO
 serde = { workspace = true }
 # Performance: High-speed collections for Flyweight pools
 hashbrown = { workspace = true }
-
 # Standardized error handling per LMS-PROCESS-ERROR
 thiserror = { workspace = true }
 
+# ---------------------------------------------------------------------
+# DEV-DEPENDENCIES
+# Strict isolation tools for hermetic testing (LMS-TEST).
+# ---------------------------------------------------------------------
 [dev-dependencies]
 # Required for hermetic serialization tests
 serde_json = { workspace = true }
 
+# ---------------------------------------------------------------------
+# LINTING STANDARDS (Inherited)
+# ---------------------------------------------------------------------
+[lints]
+workspace = true
+
+# ---------------------------------------------------------------------
+# EXAMPLES
+# ---------------------------------------------------------------------
 [[example]]
 name = "build_manifest"
 path = "examples/build_manifest.rs"

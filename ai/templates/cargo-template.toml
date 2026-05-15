@@ -1,17 +1,17 @@
 # =====================================================================
-# BISTUN LMS: STANDARD CRATE TEMPLATE
+# BISTUN: STANDARD CRATE TEMPLATE
 # Ref: [LMS-STACK], [LMS-DOC], [007-LMS-OPS]
 # =====================================================================
 
 [package]
-name = "bistun-lms"
+name = "bistun-[module-name]"
 version = "2.0.0"
-description = "A thread-safe capability engine for resolving BCP 47 language tags into actionable rendering and parsing properties (directionality, morphology, segmentation). Features a wait-free, lock-free memory pool (ArcSwap) enabling zero-downtime registry hot-swaps for high-throughput NLP and UI pipelines."
-repository = "https://github.com/fwazeter/bistun/tree/main/crates/bistun-lms"
-keywords = ["i18n", "bcp47", "localization", "linguistics", "capability-engine"]
+description = "[Mandatory 1-2 sentence description mapping to the module's elevator pitch]"
+repository = "https://github.com/fwazeter/bistun/tree/main/crates/bistun-[module-name]"
+keywords = ["i18n", "bcp47", "linguistics", "capability-engine", "[specific-tag]"]
 categories = ["internationalization", "text-processing"]
 readme = "README.md"
-documentation = "https://docs.rs/bistun-lms"
+documentation = "https://docs.rs/bistun-[module-name]"
 
 # Inherit global workspace standards to prevent metadata drift
 authors.workspace = true
@@ -33,45 +33,25 @@ rustdoc-args = ["--cfg", "docsrs"]
 # Enforces the "Zero-Overhead" principle. Only compile what is needed.
 # ---------------------------------------------------------------------
 [features]
-# Standard servers get full async and file/network I/O out of the box.
-# WASM/Edge consumers can opt out via `default-features = false`.
-default = ["fs", "network", "async-worker"]
+# Baseline execution limits
+default = []
 
-# Enables FileSnapshotProvider
-fs = ["tokio/fs"]
+# Domain-specific gates (Examples)
+# persistence = ["dep:serde", "dep:hashbrown"]
+# async-worker = ["tokio/rt-multi-thread", "tokio/time"]
 
-# Enables HttpSnapshotProvider
-network = ["dep:reqwest"]
-
-# Enables the background polling worker (forces Tokio runtime)
-async-worker = ["tokio/rt-multi-thread", "tokio/time"]
-
-# Enables the hermetic simulation data and dynamic Ed25519 key generation
-simulation = ["dep:rand", "ed25519-dalek/rand_core", "bistun-core/testing"]
+# Testing and Simulation: Mocks and Golden Data sets
+simulation = ["bistun-core/testing", "dep:rand"]
 
 # ---------------------------------------------------------------------
 # DEPENDENCIES
 # Use `workspace = true` whenever possible to ensure version lockstep.
 # ---------------------------------------------------------------------
 [dependencies]
-bistun-core = { workspace = true, features = ["persistence", "ops"] }
-serde_json = { workspace = true }
+bistun-core = { workspace = true }
 tracing = { workspace = true }      # Mandatory for SLI observability
-arc-swap = "1.9.1"                  # Wait-free, lock-free memory pool
-
-# Concurrency & Async
-tokio = { workspace = true, optional = true }
-
-# Optional Network I/O
-reqwest = { workspace = true, optional = true }
-
-# Cryptographic verification
-ed25519-dalek = { workspace = true }
-base64 = { workspace = true }
-
-# Simulation / Golden Data
-rand = { workspace = true, optional = true }
-
+thiserror = { workspace = true }    # Mandatory for LMS-PROCESS-ERROR
+serde = { workspace = true, optional = true }
 
 # ---------------------------------------------------------------------
 # DEV-DEPENDENCIES
@@ -80,9 +60,7 @@ rand = { workspace = true, optional = true }
 [dev-dependencies]
 mockall = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-criterion = { workspace = true, features = ["html_reports"] }
-tempfile = { workspace = true }
-hashbrown = { workspace = true }
+criterion = { workspace = true, features = ["html_reports"] } # For < 1ms budget verification
 
 # ---------------------------------------------------------------------
 # COMPILER PROFILES (LMS-OPS ENFORCEMENT)
@@ -114,24 +92,3 @@ unsafe_code = "forbid"       # Memory safety is absolute
 all = "deny"
 pedantic = "warn"            # Catch high-performance regressions
 unwrap_used = "warn"         # Enforce proper LmsError bubbling
-
-# ---------------------------------------------------------------------
-# EXAMPLES & BENCHMARKS
-# ---------------------------------------------------------------------
-
-[[bench]]
-name = "performance_verification"
-harness = false
-required-features = ["simulation"]
-
-[[example]]
-name = "hot_swap_demo"
-path = "examples/hot_swap_demo.rs"
-# Requires the Tokio worker threads for background polling and simulation for fake keys
-required-features = ["async-worker", "simulation"]
-
-[[example]]
-name = "standalone_resolver"
-path = "examples/standalone_resolver.rs"
-# Only requires simulation data to boot; no background threads needed
-required-features = ["simulation"]

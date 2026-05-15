@@ -15,26 +15,32 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Truncation Resolver
+//! Crate: `bistun-lms`
 //! Ref: [012-LMS-ENG]
-//! Location: `src/core/resolver/truncation.rs`
+//! Location: `crates/bistun-lms/src/core/resolver/truncation.rs`
 //!
-//! **Why**: Implements the RFC 4647 fallback algorithm, iteratively stripping subtags from right to left to find the nearest supported parent locale.
+//! **Why**: Implements the `RFC 4647` fallback algorithm, iteratively stripping subtags from right to left to find the nearest supported parent locale.
 //! **Impact**: Prevents high-specificity tags (e.g., `ar-EG-u-nu-latn`) from failing into generic system defaults by correctly identifying the closest regional data (`ar-EG`).
 //!
 //! ### Glossary
-//! * **RFC 4647**: The IETF standard defining the "Lookup" and "Fallback" mechanisms for BCP 47 language tags.
+//! * **RFC 4647**: The `IETF` standard defining the "Lookup" and "Fallback" mechanisms for `BCP 47` language tags.
 //! * **Truncation**: The mechanical process of dropping the rightmost subtag following a hyphen (`-`).
 
 use crate::core::resolver::{IResolver, orchestrator::LocaleEntry};
 use crate::data::swap::IRegistryState;
 
-/// Evaluates BCP 47 tags by iteratively truncating the rightmost subtag.
+/// Evaluates `BCP 47` tags by iteratively truncating the rightmost subtag.
 #[derive(Default)]
 pub struct TruncationResolver {
+    /// The successor node in the resolution Chain of Responsibility.
     next: Option<Box<dyn IResolver>>,
 }
 
 impl TruncationResolver {
+    /// Constructs a new [`TruncationResolver`] with no initial successor.
+    ///
+    /// Time: `O(1)` | Space: `O(1)`
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -43,14 +49,14 @@ impl TruncationResolver {
 impl IResolver for TruncationResolver {
     /// Executes the Truncation resolution strategy.
     ///
-    /// Time: O(N) where N is the number of subtags | Space: O(1) inside the loop
+    /// Time: `O(N)` where N is the number of subtags | Space: `O(1)` inside the loop
     ///
     /// # Logic Trace (Internal)
     /// 1. Initialize the working tag string to the exact requested input.
     /// 2. Enter an iterative loop, stripping subtags from right-to-left using `-` as the delimiter.
-    /// 3. Perform a wait-free registry check for each truncated prefix.
-    /// 4. If a match is found, record telemetry and return the `LocaleEntry`.
-    /// 5. If the loop exhausts the string without a match, delegate the *original* tag to the next resolver.
+    /// 3. Perform a wait-free registry check for each truncated prefix via the active `RegistryState`.
+    /// 4. If a match is found, record telemetry in the `path` and return the [`LocaleEntry`].
+    /// 5. If the loop exhausts the string without a match, delegate the original tag to the next resolver.
     ///
     /// # Examples
     /// ```text
@@ -58,8 +64,8 @@ impl IResolver for TruncationResolver {
     /// ```
     ///
     /// # Arguments
-    /// * `tag` (&str): The current BCP 47 string being evaluated.
-    /// * `state` (&dyn IRegistryState): The thread-safe active Flyweight pool.
+    /// * `tag` (&str): The current `BCP 47` string being evaluated.
+    /// * `state` (&dyn `IRegistryState`): The thread-safe active Flyweight pool.
     /// * `path` (&mut `Vec<String>`): The accumulated resolution path for telemetry.
     ///
     /// # Returns
@@ -102,6 +108,7 @@ impl IResolver for TruncationResolver {
         self.next.as_ref().and_then(|n| n.resolve(tag, state, path))
     }
 
+    /// Sets the successor node in the resolution chain.
     fn set_next(&mut self, next: Box<dyn IResolver>) {
         self.next = Some(next);
     }
@@ -131,7 +138,9 @@ mod tests {
         let mut path = Vec::new();
 
         // [STEP 2]: Execute.
-        let entry = resolver.resolve("en-AU-u-nu-latn", &mock_state, &mut path).unwrap();
+        let entry = resolver
+            .resolve("en-AU-u-nu-latn", &mock_state, &mut path)
+            .expect("LMS-TEST: Truncation failed to resolve parent for valid child tag");
 
         // [STEP 3]: Assert: Tag successfully truncated down to "en-AU".
         assert_eq!(entry.id, "en-AU");
@@ -163,7 +172,9 @@ mod tests {
         let mut path = Vec::new();
 
         // [STEP 2 & 3]: Execute and Assert delegation occurred correctly.
-        let entry = resolver.resolve("xx-YY-ZZ", &mock_state, &mut path).unwrap();
+        let entry = resolver
+            .resolve("xx-YY-ZZ", &mock_state, &mut path)
+            .expect("LMS-TEST: Truncation failed to delegate correctly after exhaustion");
         assert_eq!(entry.id, "en-US");
     }
 }

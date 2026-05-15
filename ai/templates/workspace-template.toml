@@ -1,0 +1,78 @@
+# =====================================================================
+# BISTUN: STANDARD WORKSPACE Cargo.toml TEMPLATE
+# Ref: [LMS-STACK], [LMS-DOC], [007-LMS-OPS]
+# =====================================================================
+
+[workspace]
+resolver = "2"
+
+members = [
+    # "crates/bistun-core",
+    # "crates/bistun-lms",
+    # "crates/bistun-api",
+]
+
+# ---------------------------------------------------------------------
+# INHERITABLE PACKAGE METADATA
+# Centralizes standard metadata so child crates remain DRY.
+# ---------------------------------------------------------------------
+[workspace.package]
+version = "0.9.1"
+authors = ["Francis Xavier Wazeter IV"]
+edition = "2024"
+rust-version = "1.95"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/fwazeter/bistun"
+homepage = "https://github.com/fwazeter/bistun"
+
+# ---------------------------------------------------------------------
+# INHERITABLE DEPENDENCIES
+# Enforces strict version lockstep across all microservices and SDKs.
+# Note: Cargo does NOT support `[workspace.dev-dependencies]`. All shared
+# dependencies (whether used as dev, build, or normal dependencies in
+# child crates) must be declared here under `[workspace.dependencies]`.
+# ---------------------------------------------------------------------
+[workspace.dependencies]
+# Internal Workspace Members (Ensures crates always use the local path)
+# bistun-core = { path = "crates/bistun-core", version = "2.0.0" }
+
+# Production Dependencies (Shared)
+# serde = { version = "1.0", features = ["derive"] }
+# tracing = { version = "0.1", features = ["attributes"] }
+
+# Development & Test Dependencies (Child crates will call these in [dev-dependencies])
+# mockall = "0.11"
+# criterion = { version = "0.4", features = ["html_reports"] }
+
+# ---------------------------------------------------------------------
+# COMPILER PROFILES (LMS-OPS ENFORCEMENT)
+# Note: Profiles MUST be defined at the workspace root to take effect.
+# ---------------------------------------------------------------------
+
+[profile.release]
+# Maximize performance for the < 1ms resolution budget
+opt-level = 3
+lto = "fat"             # Cross-crate Link Time Optimization
+codegen-units = 1       # Slower compile times, but maximum binary optimization
+panic = "abort"         # Reduces binary size and overhead (Fail-Fast philosophy)
+strip = true            # Strip symbols for minimal binary weight
+
+[profile.dev]
+# Optimize for rapid local compilation and debugging
+opt-level = 0
+debug = true
+debug-assertions = true
+
+# ---------------------------------------------------------------------
+# GLOBAL LINTING STANDARDS (Rust 1.74+)
+# Strictly enforce LMS-DOC and performance idioms across all crates.
+# Child crates inherit this via `[lints] workspace = true`.
+# ---------------------------------------------------------------------
+[workspace.lints.rust]
+missing_docs = "deny"        # Enforces LMS-DOC Narrative Requirements
+unsafe_code = "forbid"       # Memory safety is absolute
+
+[workspace.lints.clippy]
+all = "deny"
+pedantic = "warn"            # Catch high-performance regressions
+unwrap_used = "warn"         # Enforce proper LmsError bubbling

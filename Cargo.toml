@@ -1,3 +1,8 @@
+# =====================================================================
+# BISTUN: AUTHORITATIVE WORKSPACE Cargo.toml
+# Ref: [LMS-STACK], [LMS-DOC], [007-LMS-OPS]
+# =====================================================================
+
 [workspace]
 resolver = "2"
 
@@ -7,18 +12,27 @@ members = [
     "crates/bistun-api",
 ]
 
+# ---------------------------------------------------------------------
+# INHERITABLE PACKAGE METADATA
+# Centralizes standard metadata so child crates remain DRY.
+# ---------------------------------------------------------------------
 [workspace.package]
-version = "0.9.1"
+version = "0.9.2"
 authors = ["Francis Xavier Wazeter IV"]
 edition = "2024"
+rust-version = "1.95" # Enforced official release
 license = "GPL-3.0-or-later"
 repository = "https://github.com/fwazeter/bistun"
 homepage = "https://github.com/fwazeter/bistun"
 
+# ---------------------------------------------------------------------
+# INHERITABLE DEPENDENCIES
+# Enforces strict version lockstep across all microservices and SDKs.
+# ---------------------------------------------------------------------
 [workspace.dependencies]
 # Internal Workspace Members
-bistun-core = { path = "crates/bistun-core", version = "1.0.1" }
-bistun-lms = { path = "crates/bistun-lms", version = "1.0.2" }
+bistun-core = { path = "crates/bistun-core", version = "2.0.0" }
+bistun-lms = { path = "crates/bistun-lms", version = "2.0.0" }
 
 # Production Dependencies (Shared)
 serde = { version = "1.0.228", features = ["derive"] }
@@ -27,7 +41,42 @@ thiserror = "2.0.18"
 tracing = { version = "0.1.44", features = ["attributes"] }
 hashbrown = { version = "0.17.0", features = ["serde"] }
 dotenvy = "0.15.7"
+arc-swap = "1.9.1"
+tokio = "1.43.0"
+reqwest = "0.13.3"
+ed25519-dalek = "2.2.0"
+base64 = "0.22.1"
+rand = "0.8.5"
 
 # Development & Test Dependencies
 mockall = "0.14.0"
 criterion = { version = "0.8.2", features = ["html_reports"] }
+tempfile = "3.27.0"
+
+# ---------------------------------------------------------------------
+# COMPILER PROFILES (LMS-OPS ENFORCEMENT)
+# ---------------------------------------------------------------------
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+debug-assertions = true
+
+# ---------------------------------------------------------------------
+# GLOBAL LINTING STANDARDS
+# ---------------------------------------------------------------------
+[workspace.lints.rust]
+missing_docs = "deny"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = "warn"
+unwrap_used = "warn"

@@ -27,7 +27,7 @@ curator = ["dep:rand", "dep:ed25519-dalek", "dep:base64"]
 # System integration
 bistun-core = { workspace = true }
 # Bypass workspace inheritance so we can enforce default-features = false
-bistun-lms = { path = "../bistun-lms", version = "1.0.1", default-features = false, features = ["async-worker"] }
+bistun-lms = { path = "../bistun-lms", version = "2.0.0", default-features = false, features = ["async-worker"] }
 
 # Config & Environment
 dotenvy = { workspace = true, optional = true }

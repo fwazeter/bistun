@@ -4,6 +4,7 @@
 #![cfg(feature = "ops")]
 
 //! # Operational Models
+//! Crate: bistun-core
 //! Ref: [007-LMS-OPS]
 //! Location: `crates/bistun-core/src/ops.rs`
 //!
@@ -34,4 +35,20 @@ pub struct SyncMetrics {
     pub last_successful_sync: u64,
     /// The cumulative number of failed hydration attempts since boot.
     pub sync_error_count: u64,
+}
+
+/// Tracks the runtime resolution telemetry for the Capability Engine.
+/// Ref: [007-LMS-OPS]
+///
+/// Time: O(1) | Space: O(1)
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ResolutionMetrics {
+    /// Total number of manifests generated.
+    pub total_manifests_resolved: u64,
+    /// Total number of logical rules successfully synthesized.
+    pub rule_synthesis_count: u64,
+    /// Number of times the High-Water Mark algorithm successfully resolved a rule conflict.
+    pub rule_conflict_resolved_total: u64,
+    /// Number of times Phase 2.5 (Resource Bridge) failed to map an ID to a URI.
+    pub resource_resolution_failures: u64,
 }

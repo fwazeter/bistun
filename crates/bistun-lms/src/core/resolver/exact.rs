@@ -15,11 +15,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Exact Match Resolver
+//! Crate: `bistun-lms`
 //! Ref: [012-LMS-ENG]
-//! Location: `src/core/resolver/exact.rs`
+//! Location: `crates/bistun-lms/src/core/resolver/exact.rs`
 //!
-//! **Why**: Performs the initial, highest-performance $O(1)$ lookup for a BCP 47 tag before any fallback logic is applied.
-//! **Impact**: This is the fastest resolution path in the pipeline. If this logic fails, the engine will unnecessarily fall back to truncation, wasting CPU cycles and potentially discarding highly specific regional data (e.g., resolving `en-GB-oed` as just `en-GB`).
+//! **Why**: Performs the initial, highest-performance `O(1)` lookup for a `BCP 47` tag before any fallback logic is applied.
+//! **Impact**: This is the fastest resolution path in the pipeline. If this logic fails, the engine will unnecessarily fall back to truncation, wasting `CPU` cycles and potentially discarding highly specific regional data.
 //!
 //! ### Glossary
 //! * **Exact Match**: A 1:1 string comparison where the requested locale matches a registry Flyweight identity identically without any truncation or aliasing.
@@ -27,13 +28,18 @@
 use crate::core::resolver::{IResolver, orchestrator::LocaleEntry};
 use crate::data::swap::IRegistryState;
 
-/// Evaluates BCP 47 tags for a direct 1:1 match in the active registry.
+/// Evaluates `BCP 47` tags for a direct 1:1 match in the active registry.
 #[derive(Default)]
 pub struct ExactMatchResolver {
+    /// The successor node in the resolution Chain of Responsibility.
     next: Option<Box<dyn IResolver>>,
 }
 
 impl ExactMatchResolver {
+    /// Constructs a new [`ExactMatchResolver`] with no initial successor.
+    ///
+    /// Time: `O(1)` | Space: `O(1)`
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -42,11 +48,11 @@ impl ExactMatchResolver {
 impl IResolver for ExactMatchResolver {
     /// Executes the Exact Match resolution strategy.
     ///
-    /// Time: O(1) (Hash map lookup) | Space: O(1) (excluding path telemetry allocation)
+    /// Time: `O(1)` (Hash map lookup) | Space: `O(1)` (excluding path telemetry allocation)
     ///
     /// # Logic Trace (Internal)
-    /// 1. Perform an exact $O(1)$ lookup against the active Flyweight memory pool using the raw tag.
-    /// 2. If a match is found, append the tag to the resolution path and return the `LocaleEntry`.
+    /// 1. Perform an exact `O(1)` lookup against the active Flyweight memory pool using the raw tag.
+    /// 2. If a match is found, append the tag to the resolution path and return the [`LocaleEntry`].
     /// 3. If no match is found, delegate the unmodified tag to the next resolver in the chain.
     ///
     /// # Examples
@@ -55,8 +61,8 @@ impl IResolver for ExactMatchResolver {
     /// ```
     ///
     /// # Arguments
-    /// * `tag` (&str): The current BCP 47 string being evaluated.
-    /// * `state` (&dyn IRegistryState): The thread-safe active Flyweight pool.
+    /// * `tag` (&str): The current `BCP 47` string being evaluated.
+    /// * `state` (&dyn `IRegistryState`): The thread-safe active Flyweight pool.
     /// * `path` (&mut `Vec<String>`): The accumulated resolution path for telemetry.
     ///
     /// # Returns
@@ -87,6 +93,7 @@ impl IResolver for ExactMatchResolver {
         self.next.as_ref().and_then(|n| n.resolve(tag, state, path))
     }
 
+    /// Sets the successor node in the resolution chain.
     fn set_next(&mut self, next: Box<dyn IResolver>) {
         self.next = Some(next);
     }
@@ -111,7 +118,9 @@ mod tests {
         let mut path = Vec::new();
 
         // [STEP 2]: Execute.
-        let entry = resolver.resolve("th-TH", &mock_state, &mut path).unwrap();
+        let entry = resolver
+            .resolve("th-TH", &mock_state, &mut path)
+            .expect("LMS-TEST: Exact match failed for existing tag");
 
         // [STEP 3]: Assert: Tag is caught immediately.
         assert_eq!(entry.id, "th-TH");
@@ -140,7 +149,9 @@ mod tests {
         let mut path = Vec::new();
 
         // [STEP 2 & 3]: Execute and Assert delegation occurred.
-        let entry = resolver.resolve("en-AU", &mock_state, &mut path).unwrap();
+        let entry = resolver
+            .resolve("en-AU", &mock_state, &mut path)
+            .expect("LMS-TEST: Delegation failed on exact match miss");
         assert_eq!(entry.id, "en-GB");
     }
 }

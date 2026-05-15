@@ -15,10 +15,11 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Traits Dictionary & Enumerations
+//! Crate: bistun-core
 //! Ref: [011-LMS-DTO]
 //! Location: `crates/bistun-core/src/traits.rs`
 //!
-//! **Why**: This module defines the shared vocabulary (TraitKeys and Enums) used to encapsulate the Typological and Orthographic properties of a locale.
+//! **Why**: This module defines the shared vocabulary (`TraitKeys` and Enums) used to encapsulate the Typological and Orthographic properties of a locale.
 //! **Impact**: If this module is compromised, the `CapabilityManifest` cannot be constructed, breaking the capability engine and causing downstream services to fail.
 //!
 //! ### Glossary
@@ -27,7 +28,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The "Golden Set" of trait keys used in the CapabilityManifest.
+/// The "Golden Set" of trait keys used in the `CapabilityManifest`.
 ///
 /// Time: O(1) | Space: O(1)
 ///
@@ -44,18 +45,29 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TraitKey {
+    // --- Rendering & Orthography ---
+    /// The primary layout direction (e.g., LTR, RTL).
     PrimaryDirection,
+    /// Indicates if the text naturally contains bidirectional elements.
     HasBidiElements,
+    /// Indicates if the script requires complex shaping (e.g., Arabic).
     RequiresShaping,
-    SegmentationStrategy,
-    MorphologyType,
-    PluralCategories,
+    /// Unicode blocks to preload for rendering.
     UnicodePreloadBlocks,
-    NumberingSystem,
-    Calendar,
-    NormalizationType,
-    TransliterationType,
-    ResourceId,
+
+    // --- Segmentation & Morphology ---
+    /// Strategy used for word and sentence boundary detection.
+    SegmentationStrategy,
+    /// Typological classification of word formation.
+    MorphologyType,
+    /// Plural category logic required for the locale.
+    PluralCategories,
+
+    // --- Cultural Defaults ---
+    /// Default numeric system (e.g., latn, arab).
+    DefaultNumberingSystem,
+    /// Default calendar system (e.g., gregory, islamic).
+    DefaultCalendar,
 }
 
 /// The UI rendering direction derived from Orthographic mechanics.
@@ -73,11 +85,14 @@ pub enum TraitKey {
 /// assert_eq!(dir, Direction::RTL);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
 pub enum Direction {
+    /// Left-to-Right layout.
     LTR,
+    /// Right-to-Left layout.
     RTL,
+    /// Top-to-Bottom layout.
     TTB,
+    /// Native bidirectional layout.
     BIDI,
 }
 
@@ -98,11 +113,14 @@ pub enum Direction {
 /// assert!(SegType::DICTIONARY > SegType::SPACE);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
 pub enum SegType {
+    /// No segmentation required.
     NONE,
+    /// Segmentation based on whitespace.
     SPACE,
+    /// Segmentation based on individual characters/syllables.
     CHARACTER,
+    /// Dictionary-based complex segmentation.
     DICTIONARY,
 }
 
@@ -120,58 +138,89 @@ pub enum SegType {
 /// assert_eq!(morph, MorphType::AGGLUTINATIVE);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
 pub enum MorphType {
+    /// Words are invariant (e.g., Chinese).
     ISOLATING,
+    /// Words are formed by stringing together discrete morphemes (e.g., Turkish).
     AGGLUTINATIVE,
+    /// Morphemes are fused together in complex ways (e.g., Spanish).
     FUSIONAL,
+    /// Words are formed using root consonants and vowel templates (e.g., Arabic).
     TEMPLATIC,
+    /// Complex multi-morpheme words acting as entire sentences (e.g., Inuktitut).
     POLYSYNTHETIC,
 }
 
-/// The required Unicode normalization form for the locale's script.
-///
-/// Time: O(1) | Space: O(1)
-///
-/// # Logic Trace (Internal)
-/// 1. Dictates whether text should be composed (NFC) or decomposed (NFD) prior to processing to ensure byte-sequence equivalence.
-///
-/// # Examples
-/// ```rust
-/// use crate::bistun_core::traits::NormType;
-/// let norm = NormType::NFC;
-/// assert_eq!(norm, NormType::NFC);
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum NormType {
-    NFC,
-    NFD,
+// =====================================================================
+// V2.0.0 Rule Engine Directives
+// =====================================================================
+
+/// Represents the standard algorithmic directives for the Rule Synthesis Engine.
+/// Note: this does not actually appear in the JSON, only the inner variants appear.
+/// Ref: [013-LMS-RULE]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum LmsRule {
+    /// Transliteration rule directive.
+    Trans(TransRule),
+    /// Pluralization rule directive.
+    Plural(PluralRule),
+    /// Casing rule directive.
+    Casing(CasingRule),
+    /// Normalization rule directive.
+    Norm(NormRule),
 }
 
-/// The transliteration transformation required for the locale's script.
-///
-/// Time: O(1) | Space: O(1)
-///
-/// # Logic Trace (Internal)
-/// 1. Dictates whether a script requires mapping to a Latin equivalent (Romanization) to facilitate cross-lingual search and indexing.
-///
-/// # Examples
-/// ```rust
-/// use crate::bistun_core::traits::TransType;
-/// let trans = TransType::ICU_TRANSFORM;
-/// assert_eq!(trans, TransType::ICU_TRANSFORM);
-/// ```
+/// Directives for transliteration and phonetic rendering strategies.
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum TransType {
-    /// No transliteration required (e.g., native Latin scripts).
+pub enum TransRule {
+    /// No transliteration required.
     NONE,
-    /// Simple deterministic mapping to Latin characters.
+    /// Standard romanization transformation.
     ROMANIZATION,
-    /// Utilizes the pre-compiled ICU4X data provider for context-aware, script-specific transliteration (e.g., Arabic Tashkeel stripping, Hebrew Sofit mapping).
+    /// Phonetic spelling transformation.
+    PHONETIC,
+    /// ICU4X algorithmic transform capability.
     ICU_TRANSFORM,
+}
+
+/// Directives for Unicode normalization logic.
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NormRule {
+    /// Normalization Form C.
+    NFC,
+    /// Normalization Form D.
+    NFD,
+    /// Normalization Form KC.
+    NFKC,
+    /// Normalization Form KD.
+    NFKD,
+}
+
+/// Directives for morphological plural category mapping.
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PluralRule {
+    /// Only cardinal numbers are supported.
+    CARDINAL_ONLY,
+    /// Ordinal and cardinal numbers are supported.
+    ORDINAL_SUPPORT,
+    /// Multiple plural categories required (few, many, other, etc.).
+    MULTIPLE_CATEGORIES,
+}
+
+/// Directives for typographic casing mechanics.
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CasingRule {
+    /// Strict case sensitivity.
+    CASE_SENSITIVE,
+    /// Case-insensitive matching.
+    CASE_INSENSITIVE,
+    /// Special Unicode casing rules (e.g., Turkish dotless i).
+    UNICODE_SPECIAL,
 }
 
 #[cfg(test)]
@@ -179,7 +228,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_segtype_high_water_mark_ordering() {
+    fn test_seg_type_high_water_mark_ordering() {
         // [Logic Trace Mapping]
         // [STEP 1]: Setup: Instantiate SegType variants via Ord trait checking.
         // [STEP 2]: Execute: Compare using the derived Ord logic.
@@ -190,12 +239,18 @@ mod tests {
     }
 
     #[test]
-    fn test_traitkey_serialization() {
+    fn test_trait_key_serialization() {
         // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Instantiate a TraitKey.
-        // [STEP 2]: Execute: Serialize to JSON string.
-        // [STEP 3]: Assert: Verify it serializes to SCREAMING_SNAKE_CASE per 011-LMS-DTO.
-        let serialized = serde_json::to_string(&TraitKey::SegmentationStrategy).unwrap();
-        assert_eq!(serialized, "\"SEGMENTATION_STRATEGY\"");
+        // [STEP 1]: Setup: Instantiate TraitKeys.
+        // [STEP 2]: Execute: Serialize to JSON strings.
+        // [STEP 3]: Assert: Verify SCREAMING_SNAKE_CASE serialization.
+        let key_dir = TraitKey::PrimaryDirection;
+        let key_num = TraitKey::DefaultNumberingSystem;
+
+        let json_dir = serde_json::to_string(&key_dir).expect("Failed to serialize trait key");
+        let json_num = serde_json::to_string(&key_num).expect("Failed to serialize trait key");
+
+        assert_eq!(json_dir, r#""PRIMARY_DIRECTION""#);
+        assert_eq!(json_num, r#""DEFAULT_NUMBERING_SYSTEM""#);
     }
 }

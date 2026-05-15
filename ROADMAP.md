@@ -1,85 +1,24 @@
-# ROADMAP: Bistun LMS Implementation Path
+# ROADMAP: Bistun LMS v1.0.0 (Rule-Centric)
 
-> **Version:** 0.8.0  
-> **Status:** Tactical Execution Plan
+## Phase 1: Foundation & Identity (Hardening)
+*Objective: Solidify the 'System of Record' authority.*
+- [ ] **A.1 Snapshot Headers**: Implement mandatory metadata (checksums, build dates) in WORM payloads.
+- [ ] **A.2 Verification Logic**: Finalize the Ed25519 verifier gate in the security module.
+- [ ] **A.3 Dependency Hygiene**: Implement granular feature flags for WASM-readiness.
 
----
+## Phase 2: The Logic Bridge (Option C Priority)
+*Objective: Enable microservices to consume linguistic rules, not just data.*
+- [ ] **B.1 Rule Synthesis**: Implement the `rules` map in `CapabilityManifest`.
+- [ ] **B.2 Resource Resolver**: Map Logical IDs to Physical Paths for ICU4X hydration.
+- [ ] **B.3 Default Mechanics**: Add support for default Transliteration/Normalization types.
 
-## I. Overview
+## Phase 3: Operational Excellence
+*Objective: Professional-grade monitoring and stability.*
+- [ ] **C.1 Sync Telemetry**: Track success/error rates for background workers.
+- [ ] **C.2 Health Endpoints**: Expose SDK state (READY/DEGRADED) for Kubernetes probes.
+- [ ] **C.3 Performance Proof**: Scientific verification of <1ms latency with rule injection.
 
-This document outlines the tactical execution strategy for the Bistun Linguistic Metadata Service (LMS). Following a **Testing-First** and **Narrative-Code** philosophy, we prioritize components by their "Dependency Gravity"—starting with the core models and moving toward the high-performance orchestration layers.
-
----
-
-## II. Priority Chunks (Dependency Gravity)
-
-1.  **Foundation**: Models, Enums, and DTOs.
-2.  **Taxonomy**: The Logical Engine and **Taxonomic** Resolver Chain.
-3.  **Typology**: **Typological** Trait Aggregator and High-Water Mark logic.
-4.  **Optimization**: Flyweight instance pools and Atomic Reference Swaps.
-5.  **Orchestration**: SDK State Machine and the 5-Phase Pipeline.
-
----
-
-## III. Versioned Milestones
-
-### v0.1.0: The Static Foundation (Current Milestone)
-*Objective: Build a working in-memory capability engine with a hardcoded "Golden Set" of 5 languages.*
-
-- [X] **Standards Verification**: Ensure CI gates for `LMS-DOC` and `LMS-TEST` are active.
-- [X] **Core Models**: Implement `TraitKey`, `Direction`, `SegType`, and `MorphType` enums in `src/models/traits.rs`.
-- [X] **Manifest DTO**: Define the immutable `CapabilityManifest` and `Metadata` structures.
-- [X] **Taxonomic Resolver**: Implement the `ExactMatchResolver` and `DefaultFallbackResolver`.
-- [X] **Typology Aggregator MVP**: Implement the `TraitAggregator` with `HighWaterMark` logic for segmentation.
-- [X] **Orchestrator MVP**: A simplified `LinguisticManager` coordinating a 3-phase pipeline (Resolve -> Aggregate -> Telemetry).
-
-### v0.2.0: The Performance Engine
-*Objective: Achieve 80% memory reduction and sub-millisecond resolution via Flyweight patterns.*
-
-- [X] **Flyweight Pools**: Implement immutable instance pools in `src/data/store.rs`.
-- [X] **Truncation Logic**: Implement the RFC 4647 `TruncationResolver`.
-- [X] **Atomic Swap**: Implement background shadow-registry hydration and atomic pointer swaps.
-- [X] **Benchmarks**: Add performance unit tests to verify the $< 1\text{ms}$ budget.
-
-### v0.5.0: The Secured Sidecar
-*Objective: Production-ready SDK with cryptographic signing and full state management.*
-
-- [X] **JWS Verification**: Implement SDK-side signature checking against the LMS Public Key.
-- [X] **Full State Machine**: Transitions for **BOOTSTRAPPING**, **READY**, and **DEGRADED**.
-- [X] **Circuit Breaker**: Graceful fallback to "System Default" on synchronization failure.
-- [X] **Unicode Overrides**: Implement the `-u-` extension mapper logic.
-- [X] **Ops Integration**: Full SLI/SLO tracking for p99 resolution latency.
-
-### v0.8.0: The Global Registry
-*Objective: Scale to 7,000+ languages via automated ingestion pipelines.*
-
-- [X] **ISO Scrapers**: Automated scripts for ISO 639-3 and ISO 15924 data ingestion.
-- [X] **CLDR Importer**: Synchronization with Unicode CLDR for plural rules and directionality.
-- [X] **Truth Hierarchy**: Implementation of Tier 1-4 collision and drift management.
-- [X] **DNA Linter**: Strict **Typological Integrity** pre-persistence validation in the repository.
-
-### v1.0.0: System of Record
-*Objective: Final production stability and administrative curation tools.*
-
-- [ ] **QA Verification**: Pass regression tests for the 50 "Edge Case Locales".
-- [ ] **Persistence Architecture**: Finalize PostgreSQL/Redis WORM storage.
-- [ ] **Curator UI**: Deploy the RBAC-protected management dashboard for linguists.
-- [ ] **Code Narrative Audit**: Final verification of 100% path coverage and narrative documentation.
-
----
-
-## IV. Weekly Development Checklist (Per Feature)
-
-- [ ] Initialize source file from `TEMPLATE.rs`.
-- [ ] Define internal `//!` narrative and reference the Blueprint ID.
-- [ ] Write failing unit test (Red phase) for every documented `# Errors` case.
-- [ ] Implement logic with `// [STEP X]` inline comments mapping to the `# Logic Trace`.
-- [ ] Verify complexity matches the performance budget for the target phase.
-- [ ] Pass `cargo test`, `cargo clippy`, and `cargo doc`.
-
----
-
-**Author**: Francis Xavier Wazeter IV  
-**License**: GNU GPL v3  
-**Date Created**: 04/29/2026  
-**Date Updated**: 05/01/2026
+## Phase 4: Release & Curation
+*Objective: Final v1.0.0 stabilization.*
+- [ ] **D.1 Narrative Audit**: 100% Logic Trace coverage for all public APIs.
+- [ ] **D.2 Curator CLI**: Finalize the 'curator' tool for administrative registry signing.

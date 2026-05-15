@@ -15,11 +15,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Atomic Reference Swap Engine (Optimized)
+//! Crate: `bistun-lms`
 //! Ref: [010-LMS-MEM]
-//! Location: `src/data/swap.rs`
+//! Location: `crates/bistun-lms/src/data/swap.rs`
 //!
-//! **Why**: This module provides wait-free, lock-free access to the Flyweight registry. It allows background threads to atomically swap in new definitions without ever blocking active HTTP readers.
-//! **Impact**: Guarantees that concurrent threads never contend for locks, keeping the p99 latency budget strictly < 1ms under extreme load.
+//! **Why**: This module provides wait-free, lock-free access to the Flyweight registry. It allows background threads to atomically swap in new definitions without ever blocking active `HTTP` readers.
+//! **Impact**: If this module fails, the system cannot safely handle concurrent updates to the memory pool, resulting in data races, stale resolution, or service panics under high contention.
 //!
 //! ### Glossary
 //! * **ArcSwap**: A wait-free atomic pointer wrapper optimized for read-heavy workloads.
@@ -34,68 +35,60 @@ use std::sync::Arc;
 pub trait IRegistryState: Send + Sync {
     /// Safely and wait-freely fetches a locale profile for a reader.
     ///
-    /// Time: O(1) | Space: O(1)
+    /// Time: `O(1)` | Space: `O(1)`
     ///
     /// # Logic Trace (Internal)
     /// 1. Perform a wait-free load of the atomic pointer to the active store.
-    /// 2. Delegate the query to the underlying `RegistryStore`.
+    /// 2. Delegate the query to the underlying [`RegistryStore`].
     /// 3. Return the `Arc<LocaleProfile>` if found.
     ///
     /// # Arguments
-    /// * `id` (&str): The canonical BCP 47 locale ID to retrieve.
+    /// * `id` (&str): The canonical `BCP 47` locale ID to retrieve.
     ///
     /// # Returns
     /// * `Option<Arc<LocaleProfile>>`: An atomic reference to the immutable profile, or `None` if absent.
-    ///
-    /// # Golden I/O
-    /// * **Input**: `"ar-EG"`
-    /// * **Output**: `Some(Arc<LocaleProfile { ... }>)`
-    ///
-    /// # Errors, Panics, & Safety
-    /// * **Errors**: None.
-    /// * **Panics**: None. Wait-free reads cannot panic.
-    /// * **Safety**: Safe concurrent execution.
     fn get_profile(&self, id: &str) -> Option<Arc<LocaleProfile>>;
 
     /// Safely and wait-freely resolves a dynamic alias mapping.
     ///
-    /// Time: O(1) | Space: O(1) string clone
+    /// Time: `O(1)` | Space: `O(1)` string clone
     ///
     /// # Logic Trace (Internal)
     /// 1. Perform a wait-free load of the atomic pointer to the active store.
-    /// 2. Delegate the query to the underlying `RegistryStore`.
-    /// 3. Return the mapped canonical ID string if found.
+    /// 2. Delegate the query to the underlying [`RegistryStore`].
+    /// 3. Return the mapped canonical `ID` string if found.
     ///
     /// # Arguments
-    /// * `tag` (&str): The deprecated or macrolanguage BCP 47 tag.
+    /// * `tag` (&str): The deprecated or macrolanguage `BCP 47` tag.
     ///
     /// # Returns
     /// * `Option<String>`: The mapped canonical locale string if an alias exists.
     fn resolve_alias(&self, tag: &str) -> Option<String>;
 
+    /// Returns the semantic version of the active data set.
+    ///
+    /// Time: `O(1)` | Space: `O(1)`
     fn get_version(&self) -> String;
 
     /// Safely and wait-freely fetches the configured base resource URI.
     ///
-    /// Time: O(1) | Space: O(1) string clone
+    /// Time: `O(1)` | Space: `O(1)` string clone
     ///
     /// # Logic Trace (Internal)
     /// 1. Perform a wait-free load of the atomic pointer to the active store.
     /// 2. Access and clone the configured `base_resource_uri`.
     ///
     /// # Returns
-    /// * `String`: The fully qualified base URI (e.g., `https://cdn.example.com/v1/icu/`).
+    /// * `String`: The fully qualified base `URI` (e.g., `https://cdn.example.com/v1/icu/`).
     fn get_base_resource_uri(&self) -> String;
 }
 
 /// Manages thread-safe, wait-free access to the active linguistic registry.
 ///
-/// Time: O(1) pointer load | Space: O(1)
+/// Time: `O(1)` pointer load | Space: `O(1)`
 #[derive(Debug, Clone)]
 pub struct RegistryState {
     /// The active registry, protected by a wait-free atomic pointer.
-    /// Wrapped in an Arc so `RegistryState` can be cheaply cloned across HTTP workers
-    /// while pointing to the exact same atomic variable.
     active_store: Arc<ArcSwap<RegistryStore>>,
 }
 
@@ -106,23 +99,20 @@ impl Default for RegistryState {
 }
 
 impl RegistryState {
-    /// Initializes a new, empty RegistryState.
+    /// Initializes a new, empty [`RegistryState`].
     ///
-    /// Time: O(1) | Space: O(1) map allocations
+    /// Time: `O(1)` | Space: `O(1)` map allocations
     ///
     /// # Logic Trace (Internal)
-    /// 1. Instantiates a default, empty `RegistryStore`.
-    /// 2. Wraps the raw store in an `ArcSwap` via `from_pointee` to initialize the atomic pointer.
-    /// 3. Wraps the `ArcSwap` in an `Arc` to allow cheap struct cloning across web workers.
+    /// 1. Instantiates a default, empty [`RegistryStore`].
+    /// 2. Wraps the raw store in an [`ArcSwap`] via `from_pointee` to initialize the atomic pointer.
+    /// 3. Wraps the [`ArcSwap`] in an `Arc` to allow cheap struct cloning across web workers.
     ///
     /// # Examples
     /// ```rust
     /// use bistun_lms::data::swap::RegistryState;
     /// let state = RegistryState::new();
     /// ```
-    ///
-    /// # Arguments
-    /// * None.
     ///
     /// # Returns
     /// * `Self`: A prepared wait-free registry state.
@@ -135,6 +125,7 @@ impl RegistryState {
     /// * **Errors**: None.
     /// * **Panics**: None.
     /// * **Safety**: Fully safe synchronous initialization.
+    #[must_use]
     pub fn new() -> Self {
         // [STEP 1]: Instantiate default store. (No Arc yet)
         let store = RegistryStore::new();
@@ -144,10 +135,10 @@ impl RegistryState {
 
     /// Atomically hot-swaps the current registry with a newly hydrated one.
     ///
-    /// Time: O(1) pointer swap | Space: O(1)
+    /// Time: `O(1)` pointer swap | Space: `O(1)`
     ///
     /// # Logic Trace (Internal)
-    /// 1. Perform an atomic pointer swap to the newly provided `RegistryStore`.
+    /// 1. Perform an atomic pointer swap to the newly provided [`RegistryStore`].
     /// 2. Active readers safely finish using the old memory allocation until they drop it.
     ///
     /// # Examples
@@ -159,7 +150,7 @@ impl RegistryState {
     /// ```
     ///
     /// # Arguments
-    /// * `new_store` (RegistryStore): The newly hydrated data store to hot-swap into active memory.
+    /// * `new_store` ([`RegistryStore`]): The newly hydrated data store to hot-swap into active memory.
     ///
     /// # Returns
     /// * `()`: Side-effect function.
@@ -209,23 +200,22 @@ impl IRegistryState for RegistryState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bistun_core::traits::{Direction, MorphType, NormType, SegType, TransType};
+    use bistun_core::manifest::TraitValue;
+    use bistun_core::traits::{Direction, MorphType, SegType, TraitKey};
+    use hashbrown::HashMap;
 
-    /// Helper to generate a mock profile and resolve linter code duplication warnings.
+    /// Helper to generate a mock profile for V2.0.0 architectural alignment.
     fn create_mock_profile() -> LocaleProfile {
+        let mut traits = HashMap::new();
+        traits.insert(TraitKey::MorphologyType, TraitValue::MorphType(MorphType::TEMPLATIC));
+        traits.insert(TraitKey::SegmentationStrategy, TraitValue::SegType(SegType::SPACE));
+        traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(Direction::RTL));
+
         LocaleProfile {
             id: "ar-EG".to_string(),
-            morph: MorphType::TEMPLATIC,
-            base_seg: SegType::SPACE,
-            alt_seg: None,
-            direction: Direction::RTL,
-            has_bidi: true,
-            requires_shaping: true,
-            plurals: vec!["other".to_string()],
-            unicode_blocks: vec![],
-            normalization: NormType::NFC,
-            transliteration: TransType::NONE,
-            required_resource: None,
+            traits,
+            rules: HashMap::new(),
+            resources: HashMap::new(),
         }
     }
 
@@ -249,8 +239,14 @@ mod tests {
         state.swap_registry(new_store);
 
         // [STEP 3]: Assert: Verify the new data is instantly accessible across cloned states.
-        let profile = worker_state.get_profile("ar-EG").expect("Swap failed on cloned state");
-        assert_eq!(profile.direction, Direction::RTL);
+        let profile =
+            worker_state.get_profile("ar-EG").expect("LMS-TEST: Swap failed on cloned state");
+
+        // Assert DNA Traits (V2.0.0 structure)
+        let direction =
+            profile.traits.get(&TraitKey::PrimaryDirection).expect("LMS-TEST: Missing trait");
+        assert_eq!(*direction, TraitValue::Direction(Direction::RTL));
+
         assert_eq!(worker_state.resolve_alias("in"), Some("id".to_string()));
         assert_eq!(worker_state.get_base_resource_uri(), "https://test.cdn.bistun.io/");
     }

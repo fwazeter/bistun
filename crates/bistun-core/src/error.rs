@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Global Error Definitions
+//! Crate: bistun-core
 //! Ref: [LMS-PROCESS-ERROR]
 //! Location: `crates/bistun-core/src/error.rs`
 //!
@@ -68,7 +69,7 @@ pub enum LmsError {
     MissingTrait {
         /// Where did it fail? (e.g., "Phase 2: Aggregation")
         pipeline_step: String,
-        /// What failed? (e.g., "PRIMARY_DIRECTION")
+        /// What failed? (e.g., "`PRIMARY_DIRECTION`")
         trait_key: String,
         /// Why did it fail? (e.g., "Script Definition lacks fallback")
         reason: String,
@@ -87,15 +88,36 @@ pub enum LmsError {
 
     /// Raised when the Taxonomic Engine fails to resolve a locale, exhausting the fallback chain.
     #[error("[{pipeline_step}] Resolution Failed ({tag}): {reason}")]
-    ResolutionFailed { pipeline_step: String, tag: String, reason: String },
+    ResolutionFailed {
+        /// Where did it fail? (e.g., "Phase 1: Taxonomic Resolution")
+        pipeline_step: String,
+        /// What failed? (e.g., the missing canonical tag)
+        tag: String,
+        /// Why did it fail? (e.g., "Exhausted fallback chain without finding a registry entry")
+        reason: String,
+    },
 
     /// Raised when a capability manifest fails structural or typological integrity checks.
     #[error("[{pipeline_step}] Integrity Violation ({context}): {reason}")]
-    IntegrityViolation { pipeline_step: String, context: String, reason: String },
+    IntegrityViolation {
+        /// Where did it fail? (e.g., "Phase 4: Integrity Check")
+        pipeline_step: String,
+        /// What failed? (e.g., the canonical locale ID being verified)
+        context: String,
+        /// Why did it fail? (e.g., "Bidirectional text inherently requires complex shaping logic")
+        reason: String,
+    },
 
     /// Raised when registry signature verification or WORM state fails.
     #[error("[{pipeline_step}] Integrity Failure ({context}): {reason}")]
-    SecurityFault { pipeline_step: String, context: String, reason: String },
+    SecurityFault {
+        /// Where did it fail? (e.g., "Phase 0: WORM Hydration")
+        pipeline_step: String,
+        /// What failed? (e.g., the registry snapshot payload)
+        context: String,
+        /// Why did it fail? (e.g., "Ed25519 signature mismatch")
+        reason: String,
+    },
 
     /// Raised when the WORM snapshot cannot be read or contains a structural persistence breach.
     #[error("[{pipeline_step}] Persistence Fault ({context}): {reason}")]
@@ -105,6 +127,39 @@ pub enum LmsError {
         /// What failed? (e.g., the file path or URI)
         context: String,
         /// Why did it fail? (e.g., "Snapshot checksum mismatch")
+        reason: String,
+    },
+
+    /// Raised when Phase 2 (Aggregation) fails to synthesize algorithmic rules due to unresolvable conflicts.
+    #[error("[{pipeline_step}] Rule Synthesis Failure ({context}): {reason}")]
+    RuleSynthesisFailure {
+        /// Where did it fail? (e.g., "Phase 2: Typology Aggregation")
+        pipeline_step: String,
+        /// What failed? (e.g., "`PLURAL_LOGIC`")
+        context: String,
+        /// Why did it fail? (e.g., "Conflicting plural categories without a clear High-Water Mark")
+        reason: String,
+    },
+
+    /// Raised when Phase 2.5 (Resource Bridge) cannot map an abstract Resource ID to a physical URI.
+    #[error("[{pipeline_step}] Resource Resolution Failure ({context}): {reason}")]
+    ResourceResolutionFailure {
+        /// Where did it fail? (e.g., "Phase 2.5: Resource Bridge")
+        pipeline_step: String,
+        /// What failed? (e.g., "`icu_arab`")
+        context: String,
+        /// Why did it fail? (e.g., "Resource ID not found in deployment map")
+        reason: String,
+    },
+
+    /// Raised when Phase 3 (Override) encounters a malformed or unsupported BCP 47 extension subtag.
+    #[error("[{pipeline_step}] Extension Mapping Failure ({context}): {reason}")]
+    ExtensionMappingFailure {
+        /// Where did it fail? (e.g., "Phase 3: Extension Override")
+        pipeline_step: String,
+        /// What failed? (e.g., "-u-nu-invalid")
+        context: String,
+        /// Why did it fail? (e.g., "Unsupported numbering system requested")
         reason: String,
     },
 }

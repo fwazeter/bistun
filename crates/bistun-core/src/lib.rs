@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Shared Data Models (DTOs) & Foundation
+//! Crate: bistun-core
 //! Ref: [011-LMS-DTO]
 //! Location: `crates/bistun-core/src/lib.rs`
 //!
@@ -44,8 +45,10 @@ pub mod simulation;
 // Re-export core DTO for ergonomic API usage
 pub use manifest::{CapabilityManifest, TraitValue};
 
-// Re-export the shared vocabulary
-pub use traits::{Direction, MorphType, NormType, SegType, TraitKey, TransType};
+// Re-export the shared vocabulary (Updated for v2.0.0 Logic Provider)
+pub use traits::{
+    CasingRule, Direction, LmsRule, MorphType, NormRule, PluralRule, SegType, TraitKey, TransRule,
+};
 
 // Re-export Errors
 pub use error::LmsError;
@@ -56,7 +59,7 @@ pub use registry::{LocaleProfile, RegistryMetadata, RegistryStore, WormPayload};
 
 // Re-export Operational Models
 #[cfg(feature = "ops")]
-pub use ops::{SdkState, SyncMetrics};
+pub use ops::{ResolutionMetrics, SdkState, SyncMetrics};
 
 // Testing Re-exports
 #[cfg(feature = "testing")]

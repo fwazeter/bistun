@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Capability Manifest DTO
+//! Crate: bistun-core
 //! Ref: [011-LMS-DTO]
 //! Location: `crates/bistun-core/src/manifest.rs`
 //!
@@ -25,7 +26,7 @@
 //! * **Manifest**: An immutable, resolved package of linguistic instructions (traits) tailored to a specific runtime environment.
 //! * **Untagged Serialization**: A Serde configuration where enums are serialized as their underlying value rather than explicitly wrapping them in their variant name.
 
-use crate::traits::{Direction, MorphType, NormType, SegType, TraitKey, TransType};
+use crate::traits::{Direction, LmsRule, MorphType, SegType, TraitKey};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
@@ -36,17 +37,27 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum TraitValue {
-    Boolean(bool),
+    // --- Orthographic Enums ---
+    /// Text directionality layout directive.
     Direction(Direction),
+    /// Word and sentence boundary detection strategy.
     SegType(SegType),
+
+    // --- Typological Enums ---
+    /// Linguistic morphology classification.
     MorphType(MorphType),
+
+    // -- Primitives ---
+    /// A boolean flag (e.g., true/false).
+    Boolean(bool),
+    /// An array of string values (e.g., `["one", "other"]`).
     StringArray(Vec<String>),
+    /// A catch-all string value (e.g., "arab").
+    /// Note: Must be last to prevent greedy matching over specialized enums.
     String(String),
-    NormType(NormType),
-    TransType(TransType),
 }
 
-/// The immutable CapabilityManifest DTO delivered to consuming services.
+/// The immutable `CapabilityManifest` DTO delivered to consuming services.
 ///
 /// Time: O(1) instantiation | Space: O(N) based on map sizes
 ///
@@ -56,19 +67,33 @@ pub enum TraitValue {
 /// 3. Maintains a `metadata` dictionary for telemetry and observability.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CapabilityManifest {
+    // --- Identity ---
+    /// The canonical BCP 47 tag resulting from taxonomic resolution.
     pub resolved_locale: String,
+
+    // --- Linguistic Domains ---
+    /// The dictionary of "Linguistic DNA" traits (Typology & Orthography).
     pub traits: HashMap<TraitKey, TraitValue>,
+    /// Logical directives for algorithmic execution (Rule Synthesis).
+    pub rules: HashMap<String, LmsRule>,
+    /// Mappings of Logical Resource IDs to Physical Paths.
+    pub resources: HashMap<String, String>,
+
+    // --- Overrides & Observability
+    /// User-requested BCP 47 extensions (e.g., `-u-nu-latn`).
+    pub extensions: HashMap<String, String>,
+    /// Observability data (registry version, SLI latency).
     pub metadata: HashMap<String, String>,
 }
 
 impl CapabilityManifest {
-    /// Constructs a new, empty CapabilityManifest.
+    /// Constructs a new, empty `CapabilityManifest`.
     ///
     /// Time: O(1) | Space: O(1)
     ///
     /// # Logic Trace (Internal)
     /// 1. Ingest `resolved_locale` as the authoritative BCP 47 tag.
-    /// 2. Initialize high-performance `hashbrown` HashMaps for traits and metadata.
+    /// 2. Initialize high-performance `hashbrown` `HashMaps` for traits and metadata.
     /// 3. Return the populated instance.
     ///
     /// # Examples
@@ -83,7 +108,7 @@ impl CapabilityManifest {
     /// * `resolved_locale` (String): The fully resolved and validated BCP 47 language tag (e.g., "ar-EG").
     ///
     /// # Returns
-    /// * `Self`: An empty CapabilityManifest, ready to be hydrated by the `TraitAggregator`.
+    /// * `Self`: An empty `CapabilityManifest`, ready to be hydrated by the `TraitAggregator`.
     ///
     /// # Golden I/O
     /// * **Input**: `"ar-EG".to_string()`
@@ -93,11 +118,19 @@ impl CapabilityManifest {
     /// * **Errors**: None.
     /// * **Panics**: None.
     /// * **Safety**: Fully safe synchronous initialization.
+    #[must_use]
     pub fn new(resolved_locale: String) -> Self {
         // [STEP 1]: Ingest resolved_locale.
         // [STEP 2]: Initialize hashbrown maps.
         // [STEP 3]: Return the populated instance.
-        Self { resolved_locale, traits: HashMap::new(), metadata: HashMap::new() }
+        Self {
+            resolved_locale,
+            traits: HashMap::new(),
+            rules: HashMap::new(),
+            resources: HashMap::new(),
+            extensions: HashMap::new(),
+            metadata: HashMap::new(),
+        }
     }
 }
 
@@ -106,40 +139,59 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_manifest_golden_serialization() {
+    fn test_manifest_serialization() {
         // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Instantiate a manifest for "ar-EG".
-        // [STEP 2]: Execute: Populate traits reflecting Orthography (Direction) and Typology (Morphology).
-        // [STEP 3]: Execute: Serialize the entire manifest to JSON.
-        // [STEP 4]: Assert: Verify the untagged Serde serialization outputs exact JSON values, proving 011-LMS-DTO compliance.
+        // [STEP 1]: Setup: Instantiate a manifest for Egyptian Arabic with Latin numeral override.
+        // [STEP 2]: Execute: Populate the categorized maps with specific v2.0.0 test data.
+        // [STEP 3]: Assert: Verify that Serde correctly flattens the untagged enums into the JSON output.
 
-        let mut manifest = CapabilityManifest::new("ar-EG".to_string());
+        let mut manifest = CapabilityManifest::new("ar-EG-u-nu-latn".to_string());
 
+        // Inject Phase 2 Aggregation Traits (Immutable DNA)
         manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(Direction::RTL));
         manifest.traits.insert(TraitKey::HasBidiElements, TraitValue::Boolean(true));
         manifest
             .traits
             .insert(TraitKey::MorphologyType, TraitValue::MorphType(MorphType::TEMPLATIC));
-        manifest.traits.insert(TraitKey::NormalizationType, TraitValue::NormType(NormType::NFC));
         manifest
             .traits
-            .insert(TraitKey::TransliterationType, TraitValue::TransType(TransType::ICU_TRANSFORM));
+            .insert(TraitKey::DefaultNumberingSystem, TraitValue::String("arab".to_string()));
 
-        // Pass context-specific toggles via the metadata side-channel
-        manifest.metadata.insert("icu_strip_vowels".to_string(), "true".to_string());
+        // Inject Phase 2 Synthesis Rules (Algorithmic Logic)
+        manifest.rules.insert(
+            "TRANSLITERATION_DEFAULT".to_string(),
+            LmsRule::Trans(crate::traits::TransRule::ICU_TRANSFORM),
+        );
 
-        manifest.metadata.insert("registry_version".to_string(), "1.0.0".to_string());
+        // Inject Phase 2.5 Resource Paths
+        manifest.resources.insert(
+            "icu_arab".to_string(),
+            "https://cdn.bistun.io/v1/data/icu_arab.postcard".to_string(),
+        );
 
-        let json_output = serde_json::to_string(&manifest).expect("Failed to serialize manifest");
+        // Inject Phase 3 Overrides
+        manifest.extensions.insert("nu".to_string(), "latn".to_string());
+
+        // Inject Phase 5 Telemetry
+        manifest.metadata.insert("registry_version".to_string(), "2.0.0".to_string());
+
+        let json_output =
+            serde_json::to_string(&manifest).expect("LMS-TEST: Failed to serialize manifest");
+
+        // Parse the raw string back into a dynamic JSON Value for structural assertions
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json_output).expect("LMS-TEST: Failed to parse JSON");
 
         // Asserts ensure untagged serialization maps correctly to raw JSON primitives
-        assert!(json_output.contains(r#""resolved_locale":"ar-EG""#));
-        assert!(json_output.contains(r#""PRIMARY_DIRECTION":"RTL""#));
-        assert!(json_output.contains(r#""HAS_BIDI_ELEMENTS":true"#));
-        assert!(json_output.contains(r#""MORPHOLOGY_TYPE":"TEMPLATIC""#));
-        assert!(json_output.contains(r#""NORMALIZATION_TYPE":"NFC""#));
-        assert!(json_output.contains(r#""TRANSLITERATION_TYPE":"ICU_TRANSFORM""#));
-        assert!(json_output.contains(r#""icu_strip_vowels":"true""#));
-        assert!(json_output.contains(r#""registry_version":"1.0.0""#));
+        assert_eq!(parsed["resolved_locale"], "ar-EG-u-nu-latn");
+        assert_eq!(parsed["traits"]["PRIMARY_DIRECTION"], "RTL");
+        assert_eq!(parsed["traits"]["DEFAULT_NUMBERING_SYSTEM"], "arab");
+        assert_eq!(parsed["rules"]["TRANSLITERATION_DEFAULT"], "ICU_TRANSFORM");
+        assert_eq!(
+            parsed["resources"]["icu_arab"],
+            "https://cdn.bistun.io/v1/data/icu_arab.postcard"
+        );
+        assert_eq!(parsed["extensions"]["nu"], "latn");
+        assert_eq!(parsed["metadata"]["registry_version"], "2.0.0");
     }
 }

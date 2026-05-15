@@ -15,22 +15,23 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # The Linguistic Manager (SDK Orchestrator)
-//! Ref: [001-LMS-CORE], [010-LMS-MEM]
-//! Location: `src/manager.rs`
+//! Crate: `bistun-lms`
+//! Ref: [001-LMS-CORE], [010-LMS-MEM], [007-LMS-OPS]
+//! Location: `crates/bistun-lms/src/manager.rs`
 //!
-//! **Why**: This module serves as the primary SDK interface for external consumers. It abstracts away the complex 5-phase resolution pipeline and manages the thread-safe dynamic memory pool.
+//! **Why**: This module serves as the primary ``SDK`` interface for external consumers. It abstracts away the complex ``5-Phase`` resolution pipeline and manages the thread-safe dynamic memory pool.
 //! **Impact**: If this module fails, external services cannot interface with the capability engine or will fail to boot due to hydration errors.
 //!
 //! ### Glossary
 //! * **Circuit Breaker**: A design pattern that prevents the system from executing a failing operation (like querying an empty memory pool), instead instantly returning a safe default.
-//! * **SdkState**: The operational health of the manager (`Bootstrapping`, `Ready`, `Degraded`).
+//! * **SdkState**: The operational health of the manager (``Bootstrapping``, ``Ready``, ``Degraded``).
 
 use crate::core::pipeline::generate_manifest;
 use crate::data::repository::{ISnapshotProvider, hydrate_snapshot};
 use crate::data::swap::RegistryState;
 use bistun_core::{
-    CapabilityManifest, Direction, LmsError, MorphType, SdkState, SegType, SyncMetrics, TraitKey,
-    TraitValue,
+    CapabilityManifest, Direction, LmsError, LmsRule, MorphType, NormRule, ResolutionMetrics,
+    SdkState, SegType, SyncMetrics, TraitKey, TraitValue, TransRule,
 };
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -44,16 +45,18 @@ use tracing::{error, info};
 
 /// The primary interface for generating Linguistic Capability Manifests.
 ///
-/// Time: O(1) reads | Space: O(1) pointer allocations
+/// Time: `O(1)` reads | Space: `O(1)` pointer allocations
 #[derive(Debug, Clone)]
 pub struct LinguisticManager {
     /// The thread-safe dynamic memory state protecting the Flyweight pool.
     state: RegistryState,
-    /// The current operational status of the engine. Protected by an RwLock
+    /// The current operational status of the engine. Protected by an ``RwLock``
     /// so the background worker can update it across threads.
     status: Arc<RwLock<SdkState>>,
     /// Thread-safe tracking of background sync health and errors.
     pub metrics: Arc<RwLock<SyncMetrics>>,
+    /// Thread-safe tracking of atomic runtime execution telemetry (``V2.0.0``).
+    pub resolution_metrics: Arc<RwLock<ResolutionMetrics>>,
 }
 
 impl Default for LinguisticManager {
@@ -63,140 +66,104 @@ impl Default for LinguisticManager {
 }
 
 impl LinguisticManager {
-    /// Initializes a new, empty manager instance in the `Bootstrapping` state.
+    /// Initializes a new, empty manager instance in the ``Bootstrapping`` state.
     ///
-    /// Time: O(1) | Space: O(1)
+    /// Time: `O(1)` | Space: `O(1)`
     ///
     /// # Logic Trace (Internal)
-    /// 1. Instantiates a default `RegistryState`.
-    /// 2. Wraps the `SdkState::Bootstrapping` enum in a thread-safe `Arc<RwLock>`.
-    /// 3. Returns the prepared struct.
-    ///
-    /// # Examples
-    /// ```text
-    /// // See internal `tests` module for hermetic execution.
-    /// ```
-    ///
-    /// # Arguments
-    /// * None.
+    /// 1. Instantiates a default [`RegistryState`].
+    /// 2. Wraps the [`SdkState::Bootstrapping`] enum in a thread-safe ``Arc<RwLock>``.
+    /// 3. Initializes metrics containers for sync and resolution telemetry.
+    /// 4. Returns the prepared struct.
     ///
     /// # Returns
-    /// * `Self`: A newly instantiated `LinguisticManager` ready for async initialization.
-    ///
-    /// # Golden I/O
-    /// * **Input**: `()`
-    /// * **Output**: `LinguisticManager { status: Bootstrapping, ... }`
-    ///
-    /// # Errors, Panics, & Safety
-    /// * **Errors**: None.
-    /// * **Panics**: None.
-    /// * **Safety**: Safe synchronous initialization. Note: You must call `initialize()` after creation.
+    /// * `Self`: A newly instantiated [`LinguisticManager`] ready for async initialization.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             state: RegistryState::new(),
             status: Arc::new(RwLock::new(SdkState::Bootstrapping)),
             metrics: Arc::new(RwLock::new(SyncMetrics::default())),
+            resolution_metrics: Arc::new(RwLock::new(ResolutionMetrics::default())),
         }
     }
-    /// Internal helper to get the current Unix timestamp in seconds safely.
-    fn now_secs() -> u64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
-    }
 
-    /// Performs the initial async WORM snapshot hydration via Dependency Injection.
+    /// Internal helper to get the current ``Unix`` timestamp in seconds safely.
     ///
-    /// Time: O(M) where M is the number of locales | Space: O(M) memory pool allocation
-    ///
-    /// # Logic Trace (Internal)
-    /// 1. Awaits the repository hydrator with the injected `provider` and `public_key_b64`.
-    /// 2. On success, hot-swaps the registry and sets status to `Ready`.
-    /// 3. On failure, activates Circuit Breaker mode (`Degraded`).
-    ///
-    /// # Examples
-    /// ```text
-    /// // See internal `tests` module for hermetic execution.
-    /// ```
-    ///
-    /// # Arguments
-    /// * `provider` (&impl ISnapshotProvider): The injected provider responsible for supplying the WORM payload.
-    /// * `public_key_b64` (&str): The authoritative Ed25519 public key used to verify the snapshot.
-    ///
-    /// # Returns
-    /// * `()`: Mutates the internal state and status.
-    ///
-    /// # Golden I/O
-    /// * **Input**: `&FileSnapshotProvider`, `"Base64_Public_Key"`
-    /// * **Output**: `()`
+    /// Time: `O(1)` | Space: `O(1)`
     ///
     /// # Errors, Panics, & Safety
-    /// * **Errors**: Internal errors are caught and logged; sets state to Degraded.
-    /// * **Panics**: May panic if the internal RwLock is poisoned.
-    /// * **Safety**: Safe asynchronous execution.
+    /// * **Panics**: Panics if the system clock moved backwards from the ``UNIX_EPOCH``.
+    #[must_use]
+    fn now_secs() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("LMS-OPS: System clock moved backwards")
+            .as_secs()
+    }
+
+    /// Performs the initial async ``WORM`` snapshot hydration via Dependency Injection.
     ///
-    /// # Side Effects
-    /// * Mutates the internal `self.status` lock.
-    /// * Performs heavy cryptographic operations and deserialization.
+    /// Time: `O(M)` where M is the number of locales | Space: `O(M)` memory pool allocation
+    ///
+    /// # Logic Trace (Internal)
+    /// 1. Record the start of the sync attempt in [`SyncMetrics`].
+    /// 2. Await the repository hydrator with the injected ``provider`` and ``public_key_b64``.
+    /// 3. On success, hot-swap the registry and set status to ``Ready``.
+    /// 4. On failure, activate Circuit Breaker mode (``Degraded``).
+    ///
+    /// # Arguments
+    /// * `provider` (&impl [`ISnapshotProvider`]): The authoritative data source.
+    /// * `public_key_b64` (&str): The ``Base64`` encoded public key for signature verification.
+    ///
+    /// # Panics
+    /// * Panics if the internal ``metrics`` or ``status`` locks are poisoned.
     pub async fn initialize(&self, provider: &impl ISnapshotProvider, public_key_b64: &str) {
         // [STEP 1]: Record the start of the sync attempt.
-        self.metrics.write().unwrap().last_attempted_sync = Self::now_secs();
+        self.metrics.write().expect("LMS-OPS: Sync metrics lock poisoned").last_attempted_sync =
+            Self::now_secs();
 
         // [STEP 2]: Await the repository hydrator.
         match hydrate_snapshot(provider, public_key_b64).await {
             Ok(store) => {
                 // [STEP 3a]: On success, hot-swap the registry and set status to Ready.
                 self.state.swap_registry(store);
-                *self.status.write().unwrap() = SdkState::Ready;
-                self.metrics.write().unwrap().last_successful_sync = Self::now_secs();
+                *self.status.write().expect("LMS-OPS: Status lock poisoned") = SdkState::Ready;
+                self.metrics
+                    .write()
+                    .expect("LMS-OPS: Sync metrics lock poisoned")
+                    .last_successful_sync = Self::now_secs();
                 info!("LinguisticManager initialized successfully.");
             }
             Err(e) => {
                 // [STEP 3b]: On failure, activate Circuit Breaker mode.
-                *self.status.write().unwrap() = SdkState::Degraded;
-                self.metrics.write().unwrap().sync_error_count += 1;
+                *self.status.write().expect("LMS-OPS: Status lock poisoned") = SdkState::Degraded;
+                self.metrics
+                    .write()
+                    .expect("LMS-OPS: Sync metrics lock poisoned")
+                    .sync_error_count += 1;
                 error!(
-                    "LinguisticManager failed to initialize. Triggering Circuit Breaker. Reason: {}",
-                    e
+                    "LinguisticManager failed to initialize. Triggering Circuit Breaker. Reason: {e}"
                 );
             }
         }
     }
 
-    /// Spawns a Tokio background worker that periodically polls for registry updates.
-    ///
-    /// Time: O(1) to spawn | Space: O(1) setup
+    /// Spawns a ``Tokio`` background worker that periodically polls for registry updates.
     ///
     /// # Logic Trace (Internal)
-    /// 1. Clones the atomic memory state, status lock, and moves the provider into the worker thread.
-    /// 2. Spawns an infinite asynchronous loop using `tokio::spawn`.
-    /// 3. Sleeps for the requested interval using `tokio::time::interval`.
-    /// 4. Attempts to fetch and hydrate a new snapshot via the repository hydrator.
-    /// 5. On success, executes a wait-free `ArcSwap` to the new data.
-    /// 6. On failure, aborts the update but safely retains the old registry data.
-    ///
-    /// # Examples
-    /// ```text
-    /// // See internal `tests` module for hermetic execution.
-    /// ```
+    /// 1. Clone atomic state and locks for the background thread.
+    /// 2. Spawn the detached ``Tokio`` task.
+    /// 3. Loop at the specified ``interval_secs``, attempting to fetch and hydrate a new snapshot.
+    /// 4. Hot-swap the registry on success, or increment error counts on failure.
     ///
     /// # Arguments
-    /// * `interval_secs` (u64): The duration in seconds to wait between hydration polling attempts.
-    /// * `provider` (P): The provider instance to be moved into the background worker. Must outlive the static lifetime.
-    /// * `public_key_b64` (String): The authoritative Ed25519 public key used to verify the periodic snapshots.
+    /// * `interval_secs` (u64): The polling frequency for the background worker.
+    /// * `provider` (P): The snapshot provider implementation.
+    /// * `public_key_b64` (String): The ``Base64`` public key for validation.
     ///
-    /// # Returns
-    /// * `()`: Spawns a detached asynchronous task.
-    ///
-    /// # Golden I/O
-    /// * **Input**: `3600`, `HttpSnapshotProvider`, `"Base64_Public_Key"`
-    /// * **Output**: `()`
-    ///
-    /// # Errors, Panics, & Safety
-    /// * **Errors**: None returned directly. Background errors are logged via tracing.
-    /// * **Panics**: May panic if the internal RwLock is poisoned.
-    /// * **Safety**: Requires a running Tokio runtime context.
-    ///
-    /// # Side Effects
-    /// * Spawns a new background thread (`tokio::spawn`).
+    /// # Panics
+    /// * Panics if the internal ``status`` or ``metrics`` locks are poisoned during background execution.
     #[cfg(feature = "async-worker")]
     pub fn spawn_background_sync<P>(&self, interval_secs: u64, provider: P, public_key_b64: String)
     where
@@ -209,7 +176,7 @@ impl LinguisticManager {
 
         // [STEP 2]: Spawn the detached Tokio task
         tokio::spawn(async move {
-            info!("Background sync worker started (Interval: {}s)", interval_secs);
+            info!("Background sync worker started (Interval: {interval_secs}s)");
             let mut interval_timer = time::interval(Duration::from_secs(interval_secs));
 
             loop {
@@ -220,7 +187,8 @@ impl LinguisticManager {
                 match hydrate_snapshot(&provider, &public_key_b64).await {
                     Ok(store) => {
                         state.swap_registry(store);
-                        let mut s = status.write().unwrap();
+                        let mut s =
+                            status.write().expect("LMS-OPS: Background status lock poisoned");
                         if *s != SdkState::Ready {
                             *s = SdkState::Ready;
                         }
@@ -229,10 +197,12 @@ impl LinguisticManager {
                     Err(e) => {
                         // CRITICAL: We do NOT set SdkState::Degraded here.
                         // If a background update fails, we keep using the last known good memory pool!
-                        metrics.write().unwrap().sync_error_count += 1;
+                        metrics
+                            .write()
+                            .expect("LMS-OPS: Background metrics lock poisoned")
+                            .sync_error_count += 1;
                         error!(
-                            "Background sync failed. Retaining current registry state. Reason: {}",
-                            e
+                            "Background sync failed. Retaining current registry state. Reason: {e}"
                         );
                     }
                 }
@@ -240,70 +210,104 @@ impl LinguisticManager {
         });
     }
 
-    /// Returns the current health status of the SDK.
+    /// Returns the current health status of the ``SDK``.
     ///
-    /// Time: O(1) | Space: O(1)
-    ///
-    /// # Logic Trace (Internal)
-    /// 1. Acquires a read lock on the status `RwLock`.
-    /// 2. Dereferences and returns a copy of the `SdkState`.
-    ///
-    /// # Arguments
-    /// * None.
+    /// Time: `O(1)` | Space: `O(1)`
     ///
     /// # Returns
-    /// * `SdkState`: Current operational readiness (`Bootstrapping`, `Ready`, or `Degraded`).
+    /// * [`SdkState`]: The current operational health status.
+    ///
+    /// # Panics
+    /// * **Panics**: Panics if the internal ``status`` lock is poisoned.
+    #[must_use]
     pub fn status(&self) -> SdkState {
-        *self.status.read().unwrap()
+        *self.status.read().expect("LMS-OPS: Status lock poisoned")
     }
 
     /// Returns a copy of the current sync metrics.
-    pub fn metrics(&self) -> SyncMetrics {
-        self.metrics.read().unwrap().clone()
-    }
-
-    /// Resolves a raw BCP 47 tag dynamically into an immutable CapabilityManifest.
     ///
-    /// Time: O(N) based on tag truncation length | Space: O(1) beyond returned map allocations
-    ///
-    /// # Logic Trace (Internal)
-    /// 1. Check health status; if `Degraded`, yield the hardcoded fallback.
-    /// 2. Delegate valid requests to the 5-Phase pipeline via `generate_manifest`.
-    /// 3. Return the generated manifest or bubble up architectural errors.
-    ///
-    /// # Arguments
-    /// * `tag` (&str): The raw BCP 47 string requested by the consuming application.
+    /// Time: `O(1)` | Space: `O(1)`
     ///
     /// # Returns
-    /// * `Result<CapabilityManifest, LmsError>`: The fully resolved capability payload.
+    /// * [`SyncMetrics`]: Thread-safe copy of background sync telemetry.
     ///
-    /// # Golden I/O
-    /// * **Input**: `"ar-EG"`
-    /// * **Output**: `Ok(CapabilityManifest { resolved_locale: "ar-EG", ... })`
+    /// # Panics
+    /// * **Panics**: Panics if the internal ``metrics`` lock is poisoned.
+    #[must_use]
+    pub fn metrics(&self) -> SyncMetrics {
+        self.metrics.read().expect("LMS-OPS: Metrics lock poisoned").clone()
+    }
+
+    /// Returns a copy of the current resolution metrics.
+    ///
+    /// Time: `O(1)` | Space: `O(1)`
+    ///
+    /// # Returns
+    /// * [`ResolutionMetrics`]: Thread-safe copy of runtime resolution telemetry.
+    ///
+    /// # Panics
+    /// * **Panics**: Panics if the internal ``resolution_metrics`` lock is poisoned.
+    #[must_use]
+    pub fn resolution_metrics(&self) -> ResolutionMetrics {
+        self.resolution_metrics.read().expect("LMS-OPS: Resolution metrics lock poisoned").clone()
+    }
+
+    /// Resolves a raw ``BCP 47`` tag dynamically into an immutable [`CapabilityManifest`].
+    ///
+    /// Time: `O(N)` based on tag truncation length | Space: `O(1)` beyond returned allocations
+    ///
+    /// # Logic Trace (Internal)
+    /// 1. Increment the atomic global metrics counter.
+    /// 2. Check health status; if ``Degraded``, yield the hardcoded ``V2.0.0`` fallback.
+    /// 3. Delegate valid requests to the ``5-Phase`` pipeline via [`generate_manifest`].
+    /// 4. Return the generated manifest or bubble up architectural errors.
+    ///
+    /// # Arguments
+    /// * `tag` (&str): The raw language tag to resolve.
+    ///
+    /// # Returns
+    /// * `Result<CapabilityManifest, LmsError>`: The resolved manifest or a resolution error.
+    ///
+    /// # Errors
+    /// * Returns [`LmsError`] if the pipeline fails during resolution steps.
+    ///
+    /// # Panics
+    /// * Panics if the internal ``resolution_metrics`` lock is poisoned.
     pub fn resolve_capabilities(&self, tag: &str) -> Result<CapabilityManifest, LmsError> {
-        // [STEP 1]: Check health status; trigger Circuit Breaker if Degraded.
+        // [STEP 1]: Increment operational telemetry
+        self.resolution_metrics
+            .write()
+            .expect("LMS-OPS: Resolution metrics lock poisoned")
+            .total_manifests_resolved += 1;
+
+        // [STEP 2]: Check health status; trigger Circuit Breaker if Degraded.
         if self.status() == SdkState::Degraded {
             return Ok(Self::generate_circuit_breaker_manifest());
         }
 
-        // [STEP 2 & 3]: Delegate to the 5-Phase pipeline and return.
+        // [STEP 3 & 4]: Delegate to the 5-Phase pipeline and return.
         generate_manifest(tag, &self.state)
     }
 
     /// Generates a guaranteed-safe fallback manifest when the memory pool is unreachable.
     ///
-    /// Time: O(1) | Space: O(1)
+    /// Time: `O(1)` | Space: `O(1)`
     ///
     /// # Logic Trace (Internal)
-    /// 1. Instantiate a default "en-US" manifest.
-    /// 2. Inject Circuit Breaker traits directly into the manifest.
-    /// 3. Inject telemetry metadata.
-    /// 4. Return the hardcoded fallback manifest.
+    /// 1. Instantiate a default ``en-US`` manifest.
+    /// 2. Inject immutable Linguistic ``DNA`` traits.
+    /// 3. Inject algorithmic execution rules (Mandatory for Phase 4 Integrity).
+    /// 4. Inject telemetry metadata including the ``circuit_breaker: "true"`` flag.
+    /// 5. Return the hardcoded fallback manifest.
+    ///
+    /// # Returns
+    /// * [`CapabilityManifest`]: The hardcoded system default manifest.
+    #[must_use]
     fn generate_circuit_breaker_manifest() -> CapabilityManifest {
         // [STEP 1]: Instantiate default "en-US" manifest.
         let mut manifest = CapabilityManifest::new("en-US".to_string());
 
-        // [STEP 2]: Inject Circuit Breaker traits.
+        // [STEP 2]: Inject V2.0.0 Domain 1 (Traits)
         manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(Direction::LTR));
         manifest.traits.insert(TraitKey::HasBidiElements, TraitValue::Boolean(false));
         manifest.traits.insert(TraitKey::RequiresShaping, TraitValue::Boolean(false));
@@ -312,12 +316,19 @@ impl LinguisticManager {
             .traits
             .insert(TraitKey::MorphologyType, TraitValue::MorphType(MorphType::FUSIONAL));
 
-        // [STEP 3]: Inject telemetry metadata.
+        // [STEP 3]: Inject V2.0.0 Domain 2 (Rules) - Required by Phase 4 Integrity!
+        manifest.rules.insert("NORMALIZATION_DEFAULT".to_string(), LmsRule::Norm(NormRule::NFC));
+        manifest
+            .rules
+            .insert("TRANSLITERATION_DEFAULT".to_string(), LmsRule::Trans(TransRule::NONE));
+
+        // [STEP 4]: Inject telemetry metadata.
         manifest.metadata.insert("registry_version".to_string(), "CIRCUIT_BREAKER".to_string());
         manifest.metadata.insert("resolution_path".to_string(), "DEGRADED_FALLBACK".to_string());
         manifest.metadata.insert("resolution_time_ms".to_string(), "0.0000".to_string());
+        manifest.metadata.insert("circuit_breaker".to_string(), "true".to_string());
 
-        // [STEP 4]: Return fallback manifest.
+        // [STEP 5]: Return fallback manifest.
         manifest
     }
 }
@@ -353,10 +364,12 @@ mod tests {
         let provider = SimulatedSnapshotProvider::new();
         manager.initialize(&provider, &provider.public_key).await;
 
-        let manifest = manager.resolve_capabilities("th-TH").expect("SDK delegation failed");
+        let manifest =
+            manager.resolve_capabilities("th-TH").expect("LMS-TEST: SDK delegation failed");
 
         assert_eq!(manifest.resolved_locale, "th-TH");
         assert!(!manifest.traits.is_empty());
+        assert_eq!(manager.resolution_metrics().total_manifests_resolved, 1);
     }
 
     #[tokio::test]
@@ -364,12 +377,23 @@ mod tests {
         let manager = LinguisticManager::new();
 
         // Force the degraded state manually
-        *manager.status.write().unwrap() = SdkState::Degraded;
+        *manager.status.write().expect("LMS-TEST: Status lock poisoned") = SdkState::Degraded;
 
-        let manifest = manager.resolve_capabilities("ar-EG").expect("Circuit breaker failed");
+        let manifest =
+            manager.resolve_capabilities("ar-EG").expect("LMS-TEST: Circuit breaker failed");
 
-        // Verify fallback to en-US
+        // Verify V2.0.0 fallback structure
         assert_eq!(manifest.resolved_locale, "en-US");
-        assert_eq!(manifest.metadata.get("registry_version").unwrap(), "CIRCUIT_BREAKER");
+        assert_eq!(
+            manifest.metadata.get("registry_version").expect("LMS-TEST: Missing key"),
+            "CIRCUIT_BREAKER"
+        );
+        assert_eq!(
+            manifest.metadata.get("circuit_breaker").expect("LMS-TEST: Missing key"),
+            "true"
+        );
+
+        // Verify Integrity bypass safety
+        assert!(manifest.rules.contains_key("NORMALIZATION_DEFAULT"));
     }
 }

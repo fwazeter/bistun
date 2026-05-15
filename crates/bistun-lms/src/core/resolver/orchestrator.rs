@@ -15,14 +15,15 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Taxonomic Orchestrator
+//! Crate: `bistun-lms`
 //! Ref: [012-LMS-ENG]
-//! Location: `src/core/resolver/orchestrator.rs`
+//! Location: `crates/bistun-lms/src/core/resolver/orchestrator.rs`
 //!
 //! **Why**: This module serves as the primary entry point for Phase 1 (Resolve) of the pipeline. It constructs the Chain of Responsibility and defines the shared resolution data types.
 //! **Impact**: If the orchestrator miswires the chain, the system may skip vital resolution steps like Aliasing, causing valid tags to fall through to the system default resulting in cultural data loss.
 //!
 //! ### Glossary
-//! * **LocaleEntry**: The deterministic result of a successful resolution, containing the target ID and the diagnostic path taken to find it.
+//! * **`LocaleEntry`**: The deterministic result of a successful resolution, containing the target ID and the diagnostic path taken to find it.
 
 use crate::core::resolver::{
     IResolver, alias::AliasResolver, exact::ExactMatchResolver, fallback::DefaultFallbackResolver,
@@ -34,18 +35,21 @@ use bistun_core::LmsError;
 /// Represents the canonical linguistic profile resolved from the Taxonomy engine.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocaleEntry {
+    /// The canonical `BCP 47` identifier (e.g., "ar-EG").
     pub id: String,
+    /// The diagnostic audit trail of subtags and aliases evaluated during resolution.
     pub resolution_path: Vec<String>,
 }
 
-/// Resolves a BCP 47 string to a [`LocaleEntry`] using the Chain of Responsibility.
+/// Resolves a `BCP 47` string to a [`LocaleEntry`] using the Chain of Responsibility.
 ///
-/// Time: O(N) where N is the number of subtags | Space: O(N) for path tracking.
+/// Time: `O(N)` where N is the number of subtags | Space: `O(N)` for path tracking.
 ///
 /// # Logic Trace (Internal)
-/// 1. Sanitize the input string to ensure it is not empty.
+/// 1. Sanitize the input string to ensure it is not empty or whitespace.
 /// 2. Construct and link the resolver chain (`Exact Match` -> `Alias` -> `Truncation` -> `Default`).
 /// 3. Execute the chain, collecting telemetry in the resolution path.
+/// 4. Return the result or yield a [`LmsError::ResolutionFailed`] if the structure is breached.
 ///
 /// # Examples
 /// ```text
@@ -54,8 +58,8 @@ pub struct LocaleEntry {
 /// ```
 ///
 /// # Arguments
-/// * `tag` (&str): The raw BCP 47 language tag requested by the consuming application.
-/// * `state` (&dyn IRegistryState): The thread-safe active Flyweight pool, abstracted via dynamic dispatch for object safety.
+/// * `tag` (&str): The raw `BCP 47` language tag requested by the consuming application.
+/// * `state` (&dyn `IRegistryState`): The thread-safe active Flyweight pool, abstracted via dynamic dispatch.
 ///
 /// # Returns
 /// * `Result<LocaleEntry, LmsError>`: The resolved canonical ID and its diagnostic audit path.
@@ -64,10 +68,14 @@ pub struct LocaleEntry {
 /// * **Input**: `"ar-EG"`, `RegistryState`
 /// * **Output**: `Ok(LocaleEntry { id: "ar-EG", resolution_path: ["ar-EG"] })`
 ///
-/// # Errors, Panics, & Safety
-/// * **Errors**: Returns `LmsError::InvalidTag` if the input is whitespace or empty. Returns `LmsError::ResolutionFailed` if the chain exhausts (structurally impossible if the Default Fallback is wired).
-/// * **Panics**: None.
-/// * **Safety**: Safe synchronous execution.
+/// # Errors
+/// * Returns [`LmsError::InvalidTag`] if input is empty. Returns [`LmsError::ResolutionFailed`] if the chain exhausts.
+///
+/// # Panics
+/// * None.
+///
+/// # Safety
+/// * Safe synchronous execution.
 pub fn resolve(tag: &str, state: &dyn IRegistryState) -> Result<LocaleEntry, LmsError> {
     // [STEP 1]: Sanitization
     let trimmed = tag.trim();
@@ -136,7 +144,8 @@ mod tests {
             .with(mockall::predicate::eq("th-TH"))
             .returning(|_| Some(create_stub("th-TH")));
 
-        let entry = resolve("th-TH", &mock_state).unwrap();
+        let entry = resolve("th-TH", &mock_state)
+            .expect("LMS-TEST: Orchestrator failed to resolve valid tag");
 
         assert_eq!(entry.id, "th-TH");
         assert_eq!(entry.resolution_path.len(), 1);

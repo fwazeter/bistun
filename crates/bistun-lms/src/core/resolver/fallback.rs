@@ -15,15 +15,16 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Default Fallback Resolver
+//! Crate: `bistun-lms`
 //! Ref: [012-LMS-ENG]
-//! Location: `src/core/resolver/fallback.rs`
+//! Location: `crates/bistun-lms/src/core/resolver/fallback.rs`
 //!
 //! **Why**: Acts as the terminal node in the Chain of Responsibility, guaranteeing that the Taxonomic Engine always returns a valid `LocaleEntry`.
-//! **Impact**: Prevents the capability pipeline from crashing or returning `None` when encountering entirely unsupported or alien BCP 47 tags.
+//! **Impact**: Prevents the capability pipeline from crashing or returning `None` when encountering entirely unsupported or alien `BCP 47` tags.
 //!
 //! ### Glossary
 //! * **Terminal Node**: The final step in a Chain of Responsibility that handles the request unconditionally, halting further delegation.
-//! * **System Default**: The guaranteed baseline linguistic profile (always `"en-US"`) used when no closer match exists.
+//! * **System Default**: The guaranteed baseline linguistic profile (always `en-US`) used when no closer match exists.
 
 use crate::core::resolver::{IResolver, orchestrator::LocaleEntry};
 use crate::data::swap::IRegistryState;
@@ -33,6 +34,10 @@ use crate::data::swap::IRegistryState;
 pub struct DefaultFallbackResolver;
 
 impl DefaultFallbackResolver {
+    /// Constructs a new [`DefaultFallbackResolver`].
+    ///
+    /// Time: `O(1)` | Space: `O(1)`
+    #[must_use]
     pub fn new() -> Self {
         Self
     }
@@ -41,11 +46,11 @@ impl DefaultFallbackResolver {
 impl IResolver for DefaultFallbackResolver {
     /// Executes the final Fallback resolution strategy.
     ///
-    /// Time: O(1) | Space: O(1) (excluding path telemetry allocation)
+    /// Time: `O(1)` | Space: `O(1)` (excluding path telemetry allocation)
     ///
     /// # Logic Trace (Internal)
-    /// 1. Unconditionally append the system default ID (`"en-US"`) to the resolution path.
-    /// 2. Return the `LocaleEntry` representing the system default.
+    /// 1. Unconditionally append the system default `ID` (`en-US`) to the resolution path.
+    /// 2. Return the [`LocaleEntry`] representing the system default.
     ///
     /// # Examples
     /// ```text
@@ -53,8 +58,8 @@ impl IResolver for DefaultFallbackResolver {
     /// ```
     ///
     /// # Arguments
-    /// * `_tag` (&str): The current BCP 47 string being evaluated (ignored).
-    /// * `_state` (&dyn IRegistryState): The thread-safe active Flyweight pool (ignored).
+    /// * `_tag` (&str): The current `BCP 47` string being evaluated (ignored).
+    /// * `_state` (&dyn `IRegistryState`): The thread-safe active Flyweight pool (ignored).
     /// * `path` (&mut `Vec<String>`): The accumulated resolution path for telemetry.
     ///
     /// # Returns
@@ -81,8 +86,11 @@ impl IResolver for DefaultFallbackResolver {
         Some(LocaleEntry { id: "en-US".to_string(), resolution_path: path.clone() })
     }
 
+    /// Attempts to set the next resolver in the chain.
+    ///
+    /// # Side Effects
+    /// * Terminal node; delegation is structurally impossible. This is a no-op to satisfy the trait.
     fn set_next(&mut self, _next: Box<dyn IResolver>) {
-        // Terminal node; delegation is structurally impossible.
         // Implementing an intentional no-op to satisfy the trait contract without panicking.
     }
 }
@@ -103,7 +111,10 @@ mod tests {
         let mut path = vec!["xx-YY".to_string(), "xx".to_string()];
 
         // [STEP 2]: Execute.
-        let entry = resolver.resolve("xx", &mock_state, &mut path).unwrap();
+        // Use .expect() with LMS-TEST prefix per LMS-DOC v1.1.0 standard.
+        let entry = resolver
+            .resolve("xx", &mock_state, &mut path)
+            .expect("LMS-TEST: Fallback must unconditionally succeed");
 
         // [STEP 3]: Assert: The engine must return en-US and append it to the audit path.
         assert_eq!(entry.id, "en-US");

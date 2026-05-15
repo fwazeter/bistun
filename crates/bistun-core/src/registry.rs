@@ -17,6 +17,7 @@
 #![cfg(feature = "persistence")]
 
 //! # Registry Persistence Models
+//! Crate: bistun-core
 //! Ref: [010-LMS-MEM], [002-LMS-DATA]
 //! Location: `crates/bistun-core/src/registry.rs`
 //!
@@ -27,7 +28,8 @@
 //! * **WORM (Write-Once, Read-Many)**: A storage philosophy ensuring data immutability for the registry snapshots.
 //! * **Flyweight**: A memory optimization pattern where shared instances (like `LocaleProfile`) are wrapped in `Arc` for lock-free reading.
 
-use crate::traits::{Direction, MorphType, NormType, SegType, TransType};
+use crate::traits::LmsRule;
+use crate::{TraitKey, TraitValue};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -69,21 +71,19 @@ impl Default for RegistryMetadata {
 ///
 /// Time: O(1) (Definition) | Space: O(1)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")] // Enforces the Contract Layer standard
 pub struct LocaleProfile {
+    /// The canonical BCP 47 identifier (e.g., "ar-EG").
+    #[serde(rename = "ID")]
     pub id: String,
-    pub morph: MorphType,
-    pub base_seg: SegType,
-    pub alt_seg: Option<SegType>,
-    pub direction: Direction,
-    pub has_bidi: bool,
-    pub requires_shaping: bool,
-    pub plurals: Vec<String>,
-    pub unicode_blocks: Vec<String>,
-    pub normalization: NormType,
-    pub transliteration: TransType,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub required_resource: Option<String>,
+    /// The collection of "Linguistic DNA" traits (Typology & Orthography).
+    #[serde(default)]
+    pub traits: HashMap<TraitKey, TraitValue>,
+    /// Logical directives for algorithmic execution.
+    #[serde(default)]
+    pub rules: HashMap<String, LmsRule>,
+    /// Mappings of Logical Resource IDs to Physical Paths.
+    #[serde(default)]
+    pub resources: HashMap<String, String>,
 }
 
 /// The top-level persistence contract for the entire WORM JSON registry.
@@ -116,12 +116,12 @@ pub struct RegistryStore {
 }
 
 impl RegistryStore {
-    /// Initializes a new, empty RegistryStore.
+    /// Initializes a new, empty `RegistryStore`.
     ///
     /// Time: O(1) | Space: O(1) map allocations
     ///
     /// # Logic Trace (Internal)
-    /// 1. Instantiate the high-throughput `hashbrown` HashMaps for pools and aliases.
+    /// 1. Instantiate the high-throughput `hashbrown` `HashMaps` for pools and aliases.
     /// 2. Inject default metadata and a fallback resource URI.
     /// 3. Return the empty store structure.
     ///
@@ -141,10 +141,11 @@ impl RegistryStore {
     /// * **Errors**: None.
     /// * **Panics**: None.
     /// * **Safety**: Fully safe synchronous initialization.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             metadata: Arc::new(RegistryMetadata::default()),
-            base_resource_uri: Arc::new("http://localhost:8080/assets/".to_string()),
+            base_resource_uri: Arc::new(String::new()),
             pools: HashMap::new(),
             aliases: HashMap::new(),
         }
@@ -204,6 +205,7 @@ impl RegistryStore {
     /// * **Errors**: None.
     /// * **Panics**: None.
     /// * **Safety**: Safe synchronous read access.
+    #[must_use]
     pub fn get_profile(&self, id: &str) -> Option<Arc<LocaleProfile>> {
         self.pools.get(id).cloned()
     }
@@ -222,6 +224,7 @@ impl RegistryStore {
     ///
     /// # Returns
     /// * `Option<String>`: The canonical BCP 47 ID.
+    #[must_use]
     pub fn resolve_alias(&self, tag: &str) -> Option<String> {
         self.aliases.get(tag).cloned()
     }

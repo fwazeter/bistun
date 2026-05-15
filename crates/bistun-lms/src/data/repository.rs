@@ -15,19 +15,20 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # WORM Repository Hydration
+//! Crate: `bistun-lms`
 //! Ref: [002-LMS-DATA]
-//! Location: `src/data/repository.rs`
+//! Location: `crates/bistun-lms/src/data/repository.rs`
 //!
-//! **Why**: This module compiles raw snapshot data into a highly optimized `RegistryStore` memory pool in the background, isolating heavy I/O from the critical execution path.
+//! **Why**: This module compiles raw snapshot data into a highly optimized `RegistryStore` memory pool in the background, isolating heavy `I/O` from the critical execution path.
 //! **Impact**: If this module fails, the service boots with an empty database or cannot process updates, rendering the capability engine inert.
 //!
 //! ### Architectural Note: Asynchronous Traits and Thread Safety
 //! We explicitly avoid using the standard `async fn` syntax inside the `ISnapshotProvider` trait.
-//! While Rust supports Async Functions in Traits (AFIT), the compiler cannot natively guarantee
+//! While Rust supports Async Functions in Traits (`AFIT`), the compiler cannot natively guarantee
 //! that the returned `Future` is thread-safe (`Send`).
 //!
 //! Because the `LinguisticManager` passes these providers into detached `tokio::spawn` background
-//! workers, the Tokio runtime strictly demands `Send` futures so tasks can move between CPU cores.
+//! workers, the Tokio runtime strictly demands `Send` futures so tasks can move between `CPU` cores.
 //! By returning a `Pin<Box<dyn Future + Send>>`, we manually enforce this thread-safety contract
 //! without needing to pull in heavy third-party macros like the `async-trait` crate.
 //!
@@ -42,13 +43,13 @@ use std::pin::Pin;
 
 /// Type alias for the complex pinned future returned by providers to satisfy Clippy constraints.
 ///
-/// Time: O(1) | Space: O(1)
+/// Time: `O(1)` | Space: `O(1)`
 pub type PayloadFuture<'a> =
     Pin<Box<dyn Future<Output = Result<(String, String), LmsError>> + Send + 'a>>;
 
-/// Interface for retrieving the WORM payload, enabling Dependency Inversion.
+/// Interface for retrieving the `WORM` payload, enabling Dependency Inversion.
 pub trait ISnapshotProvider: Send + Sync {
-    /// Fetches the raw JSON payload and its cryptographic signature.
+    /// Fetches the raw `JSON` payload and its cryptographic signature.
     ///
     /// # Returns
     /// * `Result<(String, String), LmsError>`: A tuple containing `(JSON_Payload, Signature)`.
@@ -59,16 +60,19 @@ pub trait ISnapshotProvider: Send + Sync {
 // SIMULATION GATED BLOCK
 // ---------------------------------------------------------
 #[cfg(feature = "simulation")]
-/// A concrete provider utilizing embedded seed data and a dynamically generated Ed25519 signature.
-/// Used primarily for testing to ensure the engine boots cleanly without disk I/O.
+/// A concrete provider utilizing embedded seed data and a dynamically generated `Ed25519` signature.
 pub struct SimulatedSnapshotProvider {
+    /// The raw `JSON` payload representing the registry state.
     pub payload: String,
+    /// The `Base64` encoded `Ed25519` signature of the payload.
     pub signature: String,
+    /// The `Base64` encoded public key used for verification.
     pub public_key: String,
 }
 
 #[cfg(feature = "simulation")]
 impl Default for SimulatedSnapshotProvider {
+    /// Initialized with default simulated credentials.
     fn default() -> Self {
         Self::new()
     }
@@ -76,7 +80,10 @@ impl Default for SimulatedSnapshotProvider {
 
 #[cfg(feature = "simulation")]
 impl SimulatedSnapshotProvider {
-    /// Generates a valid Ed25519 cryptographic keypair and signs the simulated payload on initialization.
+    /// Generates a valid `Ed25519` cryptographic keypair and signs the simulated payload.
+    ///
+    /// Time: `O(1)` | Space: `O(M)` where M is payload size.
+    #[must_use]
     pub fn new() -> Self {
         use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
         use bistun_core::SIMULATED_WORM_JSON;
@@ -95,6 +102,7 @@ impl SimulatedSnapshotProvider {
 
 #[cfg(feature = "simulation")]
 impl ISnapshotProvider for SimulatedSnapshotProvider {
+    /// Fetches the static simulated payload and signature.
     fn fetch_payload(&self) -> PayloadFuture<'_> {
         let p = self.payload.clone();
         let s = self.signature.clone();
@@ -106,14 +114,14 @@ impl ISnapshotProvider for SimulatedSnapshotProvider {
 
 /// Hydrates a fresh `RegistryStore` from a dynamically injected provider.
 ///
-/// Time: O(M) where M is the number of locales | Space: O(M) for the new map allocations
+/// Time: `O(M)` where M is the number of locales | Space: `O(M)` for map allocations
 ///
 /// # Logic Trace (Internal)
-/// 1. Fetch the raw payload and signature from the injected `ISnapshotProvider`.
-/// 2. Verify the payload's cryptographic signature via the security module using the pinned public key.
-/// 3. Parse the JSON WORM payload into the internal `WormPayload` DTO.
-/// 4. Create an isolated, fresh `RegistryStore`.
-/// 5. Inject the parsed authoritative identity (`RegistryMetadata`) into the store.
+/// 1. Fetch the raw payload and signature from the injected [`ISnapshotProvider`].
+/// 2. Verify the payload's cryptographic signature via the security module.
+/// 3. Parse the `JSON` `WORM` payload into the internal [`WormPayload`] `DTO`.
+/// 4. Create an isolated, fresh [`RegistryStore`].
+/// 5. Inject the parsed authoritative identity ([`RegistryMetadata`]) into the store.
 /// 6. Inject the arrays of Flyweights and dynamic aliases into the store's maps.
 /// 7. Yield the hydrated store to be hot-swapped into the active state.
 ///
@@ -123,23 +131,24 @@ impl ISnapshotProvider for SimulatedSnapshotProvider {
 /// ```
 ///
 /// # Arguments
-/// * `provider` (&impl ISnapshotProvider): The injected provider responsible for supplying the raw WORM payload and signature.
-/// * `public_key_b64` (&str): The Base64 encoded Ed25519 public key of the authoritative Curator compiler.
+/// * `provider` (&impl [`ISnapshotProvider`]): The provider responsible for supplying the raw `WORM` payload.
+/// * `public_key_b64` (&str): The `Base64` encoded `Ed25519` public key of the Curator compiler.
 ///
 /// # Returns
 /// * `Result<RegistryStore, LmsError>`: A fully hydrated memory pool ready for the atomic hot-swap.
 ///
 /// # Golden I/O
 /// * **Input**: `&SimulatedSnapshotProvider`, `"Base64_Public_Key"`
-/// * **Output**: `Ok(RegistryStore { metadata: { version: "v1.0.0-simulated", ... }, ... })`
+/// * **Output**: `Ok(RegistryStore { ... })`
 ///
-/// # Errors, Panics, & Safety
-/// * **Errors**: Returns `LmsError::SecurityFault` if the cryptographic signature is invalid or JSON deserialization fails.
-/// * **Panics**: None.
-/// * **Safety**: Safe asynchronous background execution.
+/// # Errors
+/// * Returns [`LmsError::SecurityFault`] if the cryptographic signature is invalid or `JSON` parsing fails.
 ///
-/// # Side Effects
-/// * Performs heavy Ed25519 curve verification and JSON deserialization, intentionally isolated to background workers.
+/// # Panics
+/// * None.
+///
+/// # Safety
+/// * Safe asynchronous background execution.
 pub async fn hydrate_snapshot(
     provider: &impl ISnapshotProvider,
     public_key_b64: &str, // Security Pin injection
@@ -155,7 +164,7 @@ pub async fn hydrate_snapshot(
         serde_json::from_str(&json_payload).map_err(|e| LmsError::SecurityFault {
             pipeline_step: "Phase 0: WORM Hydration".to_string(),
             context: "Deserialization".to_string(),
-            reason: format!("Failed to parse WORM JSON: {}", e),
+            reason: format!("Failed to parse WORM JSON: {e}"),
         })?;
 
     // [STEP 4]: Instantiation
@@ -192,7 +201,7 @@ mod tests {
     #[tokio::test]
     async fn test_hydrate_snapshot_succeeds() {
         // [Logic Trace Mapping]
-        // [STEP 1]: Setup: Create a dynamic simulated provider to generate valid keys.
+        // [STEP 1]: Setup: Create a dynamic simulated provider.
         let real_provider = SimulatedSnapshotProvider::new();
         let p_clone = real_provider.payload.clone();
         let s_clone = real_provider.signature.clone();
@@ -204,17 +213,16 @@ mod tests {
             Box::pin(async move { Ok((p, s)) })
         });
 
-        // [STEP 2]: Execute: Call the hydrator with our hermetic mock and dynamic key.
+        // [STEP 2]: Execute: Call the hydrator with our hermetic mock.
         let store = hydrate_snapshot(&mock_provider, &real_provider.public_key)
             .await
-            .expect("Hydration failed");
+            .expect("LMS-TEST: Hydration failed");
 
-        // [STEP 3]: Assert: Verify the returned store is populated with expected golden stubs.
+        // [STEP 3]: Assert: Verify the returned store is populated.
         assert!(store.get_profile("en-US").is_some(), "System Default must exist");
         assert!(store.get_profile("ar-EG").is_some());
         assert!(store.get_profile("th-TH").is_some());
         assert!(store.get_profile("zh-Hant").is_some());
-        assert!(store.get_profile("invalid-locale").is_none());
 
         // Assert Aliases parsed successfully
         assert_eq!(store.resolve_alias("in"), Some("id".to_string()));

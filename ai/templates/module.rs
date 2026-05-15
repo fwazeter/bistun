@@ -15,7 +15,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # [MODULE NAME]
-//! Ref: [[BLUEPRINT-ID]]
+//! Crate: `[[CRATE-NAME]]`
+//! Ref: `[[BLUEPRINT-ID]]`
 //! Location: `[[FILE-PATH]]`
 //!
 //! **Why**: [2-sentence explanation of existence and role in the 5-phase pipeline].
@@ -24,55 +25,74 @@
 //! ### Glossary
 //! * **[Term]**: [Definition].
 
-use crate::models::{CapabilityManifest, LmsError};
+use bistun_core::manifest::CapabilityManifest;
+use bistun_core::error::LmsError;
+
+/// [One sentence summary of the struct's role in the Linguistic DNA model].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExampleData {
+    /// [Narrative description of the field].
+    pub id: String,
+}
+
+/// [One sentence summary of the enum's role in the strategy pattern].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExampleVariant {
+    /// [Narrative description of this specific variant logic].
+    Active,
+    /// [Narrative description of this specific variant logic].
+    Inactive,
+}
 
 /// [Imperative Summary of Function].
 ///
 /// Time: O(?) | Space: O(?)
 ///
 /// # Logic Trace (Internal)
-/// 1. [Variable Ingestion/Sanitization].
+/// 1. [Variable Ingestion/Sanitization]. (Use `String::new()` for empty strings).
 /// 2. [Core Transformation/Logic].
 /// 3. [Validation/Integrity Check].
 /// 4. [Return/Side-effect].
 ///
 /// # Examples
 /// ```rust
+/// # use bistun_core::error::LmsError;
 /// // [Executable Doctest following LMS-TEST standards]
 /// ```
 ///
 /// # Arguments
-/// * `[param_name]` ([type]): [Narrative explanation of its role in the Linguistic DNA model].
+/// * `input` (&str): [Narrative explanation of its role in the Linguistic DNA model].
 ///
 /// # Returns
-/// * `Result<[Output], LmsError>`: [Semantic explanation of the output and its role in the resolution pipeline].
+/// * `Result<CapabilityManifest, LmsError>`: [Semantic explanation of the output and its role in the resolution pipeline].
 ///
 /// # Golden I/O
-/// * **Input**: [Most common real-world input]
-/// * **Output**: [Expected Result]
+/// * **Input**: `"ar-EG"`
+/// * **Output**: `Ok([`CapabilityManifest`])`
 ///
 /// # Errors, Panics, & Safety
-/// * **Errors**: List all specific [`LmsError`] variants this function can return.
+/// * **Errors**: List all specific [`LmsError`] variants this function can return (e.g., [`LmsError::InvalidTag`]).
 /// * **Panics**: Document edge cases that result in a process abort.
 /// * **Safety**: If the function is `unsafe`, document the invariants the caller must uphold.
 ///
 /// # Side Effects
 /// * [e.g., Records telemetry to SLI sinks per 007-LMS-OPS].
-pub fn function_name(input: &str) -> Result<Output, LmsError> {
+#[must_use]
+pub fn function_name(input: &str) -> Result<CapabilityManifest, LmsError> {
     // [STEP 1]: Implementation...
+    // Use .expect("LMS-TEST: <Reason>") instead of .unwrap() to satisfy Clippy.
     todo!()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockall::predicate::*;
 
     #[test]
     fn test_function_golden_path() {
         // [Logic Trace Mapping]
-        // 1. Setup Mock (Isolation per LMS-TEST)
-        // 2. Execute
+        // 1. Setup Data
+        // 2. Execute (Use .expect() for result unwrapping in tests)
         // 3. Assert
     }
 }

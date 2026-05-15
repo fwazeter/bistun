@@ -1,119 +1,170 @@
-# MODULE-README: Shared Data Models (DTOs)
+# bistun-core: The Linguistic DNA & Authority Schema
 
-![Blueprint](https://img.shields.io/badge/Blueprint-011--LMS--DTO-blue)
-![Domain](https://img.shields.io/badge/Domain-Typology%20|%20Orthography-green)
-![Location](https://img.shields.io/badge/Location-src%2Fmodels-lightgrey)
-![Status](https://img.shields.io/badge/Status-Standard-yellow)
+[![Domain: Linguistic DNA (Foundation)](https://img.shields.io/badge/Domain-Linguistic_DNA_(Foundation)-blue.svg)](#)
+[![Status: Production](https://img.shields.io/badge/Status-Production-green.svg)](#)
+[![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-gold.svg)](#)
+
+---
+
+## 💡 Elevator Pitch
+**What is this?** Think of **bistun-core** as the "Universal Blueprint" for every language your software touches. It defines the **Linguistic DNA**—the fundamental rules for how text is written, shaped, and separated—and packages them into an immutable instruction manual (a manifest) for your applications. It acts as the authoritative "Contract Layer," ensuring that every tool in the Bistun universe—from the UI to the search engine—speaks the same language and follows the same rules, no matter how complex the linguistic physics get.
+
+In v2.0.0, this crate strictly enforces a **"Separation of Domains"**, classifying linguistic data into physical truths (traits), algorithmic strategies (rules), file mappings (resources), and user preferences (extensions).
 
 ---
 
 ## I. Strategic Overview
 
 ### 1. The "Why"
-This module serves as the central hub for the system's Data Transfer Objects (DTOs) and shared vocabulary. It flattens the internal module hierarchy to provide a predictable, decoupled API for consuming sidecars and SDKs during the 5-phase resolution pipeline.
+`bistun-core` serves as the **Authoritative Schema** for the entire monorepo. It provides the zero-dependency, immutable models required to serialize linguistic truth and failure narratives between the persistence layer (WORM registry) and consuming sidecars/SDKs.
 
 ### 2. System Impact
-As the authoritative "Contract Layer" of the service, any compromise to these models will cause widespread UI rendering failures and algorithmic errors in downstream components like Search and Font Automation.
+This crate defines the **System of Record's Contract**; if the `CapabilityManifest` or `LmsError` structures are altered without a major version bump, the communication between the capability engine and its global clients will instantly collapse.
 
-### 3. Design Patterns
-* **DTO (Data Transfer Object)**: The `CapabilityManifest` encapsulates resolved linguistic instructions into an immutable package for transport.
-* **High-Water Mark Helper**: The `SegType` enum utilizes Rust's `Ord` trait to rank segmentation complexity, allowing the `TraitAggregator` to resolve multi-script conflicts automatically.
-* **Untagged Serialization**: `TraitValue` uses Serde's `untagged` pattern to output clean JSON primitives, ensuring cross-language compatibility without variant-name overhead.
-
-### 4. Local Glossary
-* **Linguistic DNA**: The unique set of Typological and Orthographic traits that define a locale's functional capabilities.
-* **High-Water Mark**: A conflict resolution strategy that selects the most complex requirement (e.g., `DICTIONARY` segmentation) when merging multi-script traits.
-* **Untagged Serialization**: A configuration where enums are serialized as their underlying value rather than being wrapped in variant names.
+### 3. Domain Alignment
+This crate operates as the **Foundation** for the **Typology** and **Orthography** pillars, standardizing the "Algebraic Data Types" used to describe language behavior.
 
 ---
 
-## II. Technical Interface
+## 🏗️ Technical Architecture
 
-### 1. Primary Capability
-| Function/Method             | Input                 | Output        | Purpose                                                         |
-|:----------------------------|:----------------------|:--------------|:----------------------------------------------------------------|
-| `CapabilityManifest::new()` | `String` (Locale Tag) | `Self`        | Constructs a new, empty instruction container.                  |
-| `serde::Serialize`          | `&Self`               | `JSON String` | Converts the manifest into a standard-aligned transport format. |
+### 1. Internal Logic Flow: The Lifecycle of Truth
+This crate manages the transition from persisted linguistic "Blueprints" to a "Narrative Failure" or a "Resolved Manifest":
 
-### 2. Side Effects & SLIs
-* **Telemetry**: Metadata fields are reserved for recording `resolution_time_ms` to verify SLI compliance against the **< 1ms** target.
-* **Performance**: Instantiation is **O(1)**. Lookups in the traits map are **O(1)** via `hashbrown`.
-* **Dependencies**: Relies on `serde` for serialization, `serde_json` for DTO validation, and `hashbrown` for high-performance map operations.
 
-### 3. Quirks & Invariants
-* **Screaming Snake Case**: All `TraitKey` variants serialize to `SCREAMING_SNAKE_CASE` to match the DTO standard.
-* **Heap Pre-allocation**: `CapabilityManifest::new()` initializes empty maps to prevent initial reallocations during the Aggregation phase.
-
----
-
-## III. Usage & Implementation
-
-### 1. Basic Instantiation
-```rust
-use crate::models::manifest::CapabilityManifest;
-
-fn main() {
-    // Initialize a manifest container for an Arabic locale
-    let manifest = CapabilityManifest::new("ar-EG".to_string());
-    
-    // Explicit use of the variable to satisfy compiler and prove readiness
-    assert_eq!(manifest.resolved_locale, "ar-EG");
-}
 ```
 
-### 2. The "Golden Path" Example
+```text
+File generated.
+
+```mermaid
+graph TD
+    A[LocaleProfile: Registry Truth] --> B{5-Phase Pipeline}
+    B -->|Success| C[CapabilityManifest: App Instructions]
+    B -->|Failure| D[LmsError: Narrative Story]
+    C --> E[Untagged JSON Delivery]
+
+```
+
+### 2. Feature-Gated Domains
+
+To maintain our **Zero-Overhead** standard, the crate is partitioned into granular, opt-in domains:
+
+| Feature           | Components Included                                    | Primary Target           |
+|-------------------|--------------------------------------------------------|--------------------------|
+| **`default`**     | `traits`, `manifest`, `error`                          | All Consumers            |
+| **`persistence`** | `registry` (`LocaleProfile`, `WormPayload`)            | Engine, Curator, Linter  |
+| **`ops`**         | `ops` (`SdkState`, `SyncMetrics`, `ResolutionMetrics`) | API, Sidecar, Dashboards |
+| **`testing`**     | `simulation` (Golden Data Set)                         | QA, Dev Apps             |
+| **`full`**        | All components                                         | Monorepo Developers      |
+
+---
+
+## 📚 Technical Interface
+
+### 1. Primary Authority Objects
+
+These objects define the "Physics" of our linguistic metadata.
+
+| Object               | Type             | Purpose                                                                                   |
+|----------------------|------------------|-------------------------------------------------------------------------------------------|
+| `LocaleProfile`      | **Persistence**  | The "Ground Truth" structure for the WORM registry, mapping traits, rules, and resources. |
+| `CapabilityManifest` | **Transmission** | The decoupled package of instructions delivered to consumers.                             |
+| `WormPayload`        | **Contract**     | The top-level WORM JSON container.                                                        |
+| `LmsError`           | **Narrative**    | Strongly-typed errors that explain "What, Where, and Why".                                |
+
+### 2. The V2.0.0 DTO Structure (CapabilityManifest)
+The engine strictly segregates data into 5 distinct maps to guarantee $O(1)$ read performance and eliminate "string parsing" overhead for downstream consumers.
+
+| Domain Map       | Data Type                   | Purpose & Examples                                                                                       |
+|:-----------------|:----------------------------|:---------------------------------------------------------------------------------------------------------|
+| **`traits`**     | `Map<TraitKey, TraitValue>` | **Linguistic DNA**: Immutable physical properties (e.g., `PRIMARY_DIRECTION`, `MORPHOLOGY_TYPE`).        |
+| **`rules`**      | `Map<String, LmsRule>`      | **Execution Directives**: Strategy logic instructions (e.g., `TRANSLITERATION_DEFAULT`, `PLURAL_LOGIC`). |
+| **`resources`**  | `Map<String, String>`       | **Physical Assets**: Actionable download URIs (e.g., `"icu_arab" -> "https://..."`).                     |
+| **`extensions`** | `Map<String, String>`       | **User Overrides**: BCP 47 subtags requested by the client at runtime (e.g., `-u-nu-latn`).              |
+| **`metadata`**   | `Map<String, String>`       | **Observability**: SLI telemetry and tracing data (e.g., `resolution_time_ms`, `registry_version`).      |
+
+### 3. Side Effects & SLIs
+
+* **Performance**: Target latency: **< 0.01ms** (zero-copy DTO hydration).
+* **Observability**: Every `LmsError` carries a `pipeline_step` and `context` field for automated SLI tracking.
+
+---
+
+## 🧪 Simulation & Golden Data
+
+Enabled via the `testing` feature, this module provides authoritative models for development without "Mock Drift."
+
+* **Authoritative Profiles**: Pre-constructed `LocaleProfile` instances for English, Arabic, Thai, Japanese, Pali, and Sanskrit utilizing the 5-domain classification.
+* **WORM Simulation**: The `SIMULATED_WORM_JSON` string used for zero-I/O engine tests.
+
+---
+
+## 🚀 Usage & Implementation
+
+### 1. The "Golden Path" (Construction and Serialization)
+
 ```rust
-use crate::models::{TraitKey, TraitValue, Direction, NormType, Transtype, CapabilityManifest};
+use bistun_core::{
+    CapabilityManifest, Direction, LmsError, LmsRule, TraitKey, TraitValue, TransRule
+};
 
-fn main() {
-    let mut manifest = CapabilityManifest::new("ar-EG".to_string());
-
-    // Injecting Orthographic and Normalization DNA into the manifest
-    manifest.traits.insert(
-        TraitKey::PrimaryDirection,
-        TraitValue::Direction(Direction::RTL)
-    );
-    manifest.traits.insert(
-        TraitKey::NormalizationType,
-        TraitValue::NormType(NormType::NFC)
-    );
+fn main() -> Result<(), LmsError> {
+    // [STEP 1]: Represent a successful instruction set with specific user overrides
+    let mut manifest = CapabilityManifest::new("he-IL-u-nu-latn".to_string());
     
-    manifest.traits.insert(
-        TraitKey::TransliterationType,
-        TraitValue::TransType(Transtype::ICU_TRANSFORM)
-    );
+    // Domain 1: Traits (Linguistic DNA)
+    manifest.traits.insert(TraitKey::PrimaryDirection, TraitValue::Direction(Direction::RTL));
+    
+    // Domain 2: Rules (Execution Directives)
+    manifest.rules.insert("TRANSLITERATION_DEFAULT".to_string(), LmsRule::Trans(TransRule::NONE));
+    
+    // Domain 4: Extensions (User Overrides)
+    manifest.extensions.insert("nu".to_string(), "latn".to_string());
 
-    // Verify successful trait mapping
-    let direction = manifest.traits.get(&TraitKey::PrimaryDirection);
-    assert!(direction.is_some());
+    // [STEP 2]: Serialize to professional Untagged JSON
+    let json = serde_json::to_string(&manifest).map_err(|_| LmsError::SecurityFault {
+        pipeline_step: "Serialization".into(),
+        context: "CapabilityManifest".into(),
+        reason: "Failed to encode DNA".into(),
+    })?;
+
+    Ok(())
 }
+
 ```
 
 ---
 
-## IV. Development & Extension Guide
+## 🛠️ Development & Extension
 
-### 1. How to Build it Up
-To add a new capability (e.g., a new `NumberingSystem` or `SynthesisDegree`):
-1.  **Define**: Add the new variant to `TraitKey` in `traits.rs`.
-2.  **Map**: Update the `TraitValue` enum in `manifest.rs` if a new return type is required.
-3.  **Validate**: Add a test case in `manifest.rs` verifying that the new trait serializes correctly to JSON.
-4.  **Audit**: Run `just verify-all` to ensure the registry versioning logic remains intact.
+### 1. Building and Testing
 
-### 2. Troubleshooting & Common Failures
-* **Serialization Mismatch**: Ensure new enum variants match the `SCREAMING_SNAKE_CASE` requirement; failure to do so will break client-side SDK parsing.
-* **High-Water Mark Regressions**: If adding a new `SegType`, verify its position in the enum matches its complexity rank, as `Ord` is derived from variant order.
+* **Check Data Rules**: `cargo test -p bistun-core --all-features`
+* **Verify Blueprints**: `cargo doc -p bistun-core --open`
+
+### 2. Extension Guide
+
+To add a new linguistic property to the **System of Record**:
+
+1. **Define**: Add the variant to `traits.rs` with `#[serde(rename_all = "SCREAMING_SNAKE_CASE")]` (or under the `LmsRule` variants if it's executable logic).
+2. **Blueprinting**: Update `LocaleProfile` in `registry.rs` and `TraitValue` in `manifest.rs`.
+3. **Verify**: Update the `simulation.rs` golden set and add a serialization test.
 
 ---
+
+## ⚖️ Legal & Contribution
+
+To maintain the integrity of the **Bistun System of Record**, all workspace members adhere to the global project standards:
+
+* **Security Policy**: Please review our [SECURITY.md](https://www.google.com/search?q=../../SECURITY.md) for reporting vulnerabilities and understanding our security tiers.
+* **Contribution Guidelines**: See our global [CONTRIBUTING.md](https://www.google.com/search?q=../../CONTRIBUTING.md) for details on the **LMS-TEST** and **LMS-DOC** standards required for all PRs.
+* **License**: This crate is licensed under the **GNU GPL v3**, as detailed in the root [LICENSE](https://www.google.com/search?q=../../LICENSE) file.
 
 ## V. Metadata
+
 * **Author**: Francis Xavier Wazeter IV
-* **Version**: 0.9.1
-* **File Created**: 2026-05-02
-* **Last Updated**: 2026-05-02
+* **Version**: 2.0.0
 * **License**: GNU GPL v3
-
----
-
-### Architect's Note for AI Agents
-When analyzing this module via RAG, prioritize the **Linguistic DNA** consistency matrix and the **High-Water Mark** conflict strategy. All code examples provided in response must be "Self-Contained" (including visible `use` statements and `main` wrappers) and must explicitly use all declared variables to pass the project's strict IDE quality gates.
+* **Date Created**: 2026-04-29
+* **Date Updated**: 2026-05-12

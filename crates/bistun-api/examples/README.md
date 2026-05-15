@@ -34,7 +34,6 @@ To run the primary demonstration, ensure you are in the `crates/bistun-api` dire
 3. **Run the Example**:
 ```bash
 cargo run --example embedded_server
-
 ```
 
 
@@ -50,7 +49,6 @@ Proves that the custom host server is successfully responding to root-level requ
 
 ```bash
 curl -s http://localhost:3000/
-
 ```
 
 *Expected Output: `"Welcome to the Custom Host Server!"*`
@@ -60,7 +58,6 @@ Validates that the Bistun router is correctly nested and the `LinguisticManager`
 
 ```bash
 curl -s http://localhost:3000/bistun-lms/health
-
 ```
 
 *Expected Output: `{"status": "Bootstrapping", ...}` (unless hydrated with dummy data).*
@@ -70,7 +67,6 @@ Tests the full 5-phase pipeline resolution through the nested router.
 
 ```bash
 curl -s http://localhost:3000/bistun-lms/v1/manifest/ar-EG
-
 ```
 
 *Expected Output: A `200 OK` with the `CapabilityManifest` JSON DTO.*

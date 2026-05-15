@@ -15,11 +15,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Alias Resolver
+//! Crate: `bistun-lms`
 //! Ref: [012-LMS-ENG]
-//! Location: `src/core/resolver/alias.rs`
+//! Location: `crates/bistun-lms/src/core/resolver/alias.rs`
 //!
 //! **Why**: Maps deprecated, regional, or macrolanguage tags to their operational equivalents before passing them down the Chain of Responsibility.
-//! **Impact**: If this fails, valid legacy tags (like `in` for Indonesian) will fail to resolve to existing definitions, causing the engine to incorrectly fall back to the system default.
+//! **Impact**: If this fails, valid legacy tags (like `in` for `Indonesian`) will fail to resolve to existing definitions, causing the engine to incorrectly fall back to the system default.
 //!
 //! ### Glossary
 //! * **Canonicalization**: The mapping of an alternate or deprecated locale code to its primary, standard identity.
@@ -27,13 +28,18 @@
 use crate::core::resolver::{IResolver, orchestrator::LocaleEntry};
 use crate::data::swap::IRegistryState;
 
-/// Evaluates BCP 47 tags against a known list of aliases and macrolanguages.
+/// Evaluates `BCP 47` tags against a known list of aliases and macrolanguages.
 #[derive(Default)]
 pub struct AliasResolver {
+    /// The next resolver in the Chain of Responsibility.
     next: Option<Box<dyn IResolver>>,
 }
 
 impl AliasResolver {
+    /// Constructs a new [`AliasResolver`] with no initial successor.
+    ///
+    /// Time: `O(1)` | Space: `O(1)`
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -42,12 +48,14 @@ impl AliasResolver {
 impl IResolver for AliasResolver {
     /// Executes the Alias resolution strategy.
     ///
-    /// Time: O(1) | Space: O(1) (excluding path telemetry allocation)
+    /// Time: `O(1)` | Space: `O(1)` (excluding path telemetry allocation)
     ///
     /// # Logic Trace (Internal)
-    /// 1. Identify known aliases using an O(1) match constraint.
-    /// 2. If the tag was aliased, check the registry for the canonical ID.
-    /// 3. Delegate to the next resolver using the canonicalized tag to prevent double-work in downstream nodes.
+    /// 1. Query the dynamic routing state for a known alias using an `O(1)` match constraint.
+    /// 2. If the tag was aliased, record the transition in the `path` telemetry.
+    /// 3. Check the registry for the canonical `ID` immediately.
+    /// 4. If found, return the [`LocaleEntry`].
+    /// 5. If not found or not an alias, delegate to the next resolver using the canonicalized (or original) tag.
     ///
     /// # Examples
     /// ```text
@@ -55,8 +63,8 @@ impl IResolver for AliasResolver {
     /// ```
     ///
     /// # Arguments
-    /// * `tag` (&str): The current BCP 47 string being evaluated.
-    /// * `state` (&dyn IRegistryState): The thread-safe active Flyweight pool.
+    /// * `tag` (&str): The current `BCP 47` string being evaluated.
+    /// * `state` (&dyn `IRegistryState`): The thread-safe active Flyweight pool.
     /// * `path` (&mut `Vec<String>`): The accumulated resolution path for telemetry.
     ///
     /// # Returns
@@ -79,22 +87,24 @@ impl IResolver for AliasResolver {
         // [STEP 1]: Query the dynamic routing state for an alias.
         if let Some(canonical_id) = state.resolve_alias(tag) {
             // [STEP 2]: If aliased, record telemetry and check the registry.
-            path.push(format!("alias:{}->{}", tag, canonical_id));
+            path.push(format!("alias:{tag}->{canonical_id}"));
 
+            // [STEP 3]: High-performance short-circuit if alias is the terminal target
             if state.get_profile(&canonical_id).is_some() {
                 path.push(canonical_id.clone());
                 return Some(LocaleEntry { id: canonical_id, resolution_path: path.clone() });
             }
 
-            // [STEP 3]: Delegate canonical
+            // [STEP 5]: Delegate canonical
             // Pass `canonical_id` down to prevent double work in downstream nodes.
             self.next.as_ref().and_then(|n| n.resolve(&canonical_id, state, path))
         } else {
-            // [STEP 3]: Delegate original. Not an alias; pass the original tag down the chain.
+            // [STEP 5]: Delegate original. Not an alias; pass the original tag down the chain.
             self.next.as_ref().and_then(|n| n.resolve(tag, state, path))
         }
     }
 
+    /// Sets the successor node in the resolution chain.
     fn set_next(&mut self, next: Box<dyn IResolver>) {
         self.next = Some(next);
     }
@@ -124,7 +134,9 @@ mod tests {
         let mut path = Vec::new();
 
         // [STEP 2]: Execute.
-        let entry = resolver.resolve("in", &mock_state, &mut path).unwrap();
+        let entry = resolver
+            .resolve("in", &mock_state, &mut path)
+            .expect("LMS-TEST: Alias resolution failed for valid tag");
 
         // [STEP 3]: Assert: Tag caught and mapped before delegation.
         assert_eq!(entry.id, "id");
@@ -154,7 +166,9 @@ mod tests {
         let mut path = Vec::new();
 
         // [STEP 2 & 3]: Execute and Assert delegation bypassed step 2.
-        let entry = resolver.resolve("en-US", &mock_state, &mut path).unwrap();
+        let entry = resolver
+            .resolve("en-US", &mock_state, &mut path)
+            .expect("LMS-TEST: Delegation failed for non-alias tag");
         assert_eq!(entry.id, "en-US");
     }
 }
