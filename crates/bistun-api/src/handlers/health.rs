@@ -25,7 +25,12 @@
 //! ### Glossary
 //! * **Probe**: A diagnostic request used by orchestrators to determine if a container is alive and ready to serve traffic.
 
-use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use axum::{
+    Json,
+    extract::State,
+    http::{StatusCode, header},
+    response::IntoResponse,
+};
 use bistun_core::ops::{SdkState, SyncMetrics};
 use bistun_lms::LinguisticManager;
 use serde::Serialize;
@@ -93,6 +98,52 @@ pub async fn health_handler(State(manager): State<LinguisticManager>) -> impl In
 
     // [STEP 4]: Return response
     (code, Json(health)).into_response()
+}
+
+/// Exports operational telemetry in Prometheus plain-text format.
+///
+/// Time: $O(1)$ | Space: $O(1)$
+///
+/// # Logic Trace (Internal)
+/// 1. \[Ingestion\]: Request synchronization and resolution metrics from the manager.
+/// 2. \[Formatting\]: Format the atomic counters into official Prometheus `# HELP` and `# TYPE` text structures.
+/// 3. \[Return\]: Return the mapped string with the mandatory `text/plain; version=0.0.4` header.
+///
+/// # Arguments
+/// * `manager` ([`State<LinguisticManager>`]): The active capability engine.
+///
+/// # Returns
+/// * `impl IntoResponse`: A plain-text Prometheus payload.
+///
+/// # Errors, Panics, & Safety
+/// * **Errors**: None.
+/// * **Panics**: None.
+/// * **Safety**: Safe synchronous read of atomic metrics.
+///
+/// # Side Effects
+/// * Exposes internal processing volumes to network scrapers.
+pub async fn metrics_handler(State(manager): State<LinguisticManager>) -> impl IntoResponse {
+    let sync = manager.metrics();
+    let res = manager.resolution_metrics();
+
+    let metrics_text = format!(
+        "# HELP lms_sync_errors_total Total WORM background hydration errors.\n\
+         # TYPE lms_sync_errors_total counter\n\
+         lms_sync_errors_total {sync_err}\n\
+         \n\
+         # HELP lms_last_successful_sync_timestamp_seconds Unix timestamp of the last successful memory hot-swap.\n\
+         # TYPE lms_last_successful_sync_timestamp_seconds gauge\n\
+         lms_last_successful_sync_timestamp_seconds {sync_success}\n\
+         \n\
+         # HELP lms_manifests_resolved_total Total BCP 47 capability resolutions processed.\n\
+         # TYPE lms_manifests_resolved_total counter\n\
+         lms_manifests_resolved_total {res_total}\n",
+        sync_err = sync.sync_error_count,
+        sync_success = sync.last_successful_sync,
+        res_total = res.total_manifests_resolved,
+    );
+
+    ([(header::CONTENT_TYPE, "text/plain; version=0.0.4")], metrics_text)
 }
 
 #[cfg(test)]

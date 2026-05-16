@@ -17,7 +17,7 @@ members = [
 # Centralizes standard metadata so child crates remain DRY.
 # ---------------------------------------------------------------------
 [workspace.package]
-version = "0.9.3"
+version = "0.9.4"
 authors = ["Francis Xavier Wazeter IV"]
 edition = "2024"
 rust-version = "1.95" # Enforced official release

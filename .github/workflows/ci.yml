@@ -21,12 +21,10 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      # --- ADD THIS STEP BELOW ---
       - name: Enable Rust Cache
         uses: swatinem/rust-cache@v2
         with:
           shared-key: "lms-shared-cache"
-      # ---------------------------
 
       - name: 1. Check Formatting
         run: cargo fmt --all -- --check
@@ -58,3 +56,25 @@ jobs:
 
       - name: Run Benchmarks
         run: cargo bench
+
+  # =========================================================
+  # MILESTONE E.1: WASM Dependency Hygiene Gate
+  # =========================================================
+  wasm-gate:
+    name: Verify WebAssembly Portability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain (WASM)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          shared-key: "lms-shared-cache"
+
+      - name: Compile bistun-lms for WASM (No Default Features)
+        run: cargo build -p bistun-lms --target wasm32-unknown-unknown --no-default-features

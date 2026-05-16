@@ -62,5 +62,5 @@ use bistun_lms::LinguisticManager;
 /// * **Safety**: Safe synchronous execution.
 pub fn router() -> Router<LinguisticManager> {
     // [STEP 1, 2 & 3]: Initialize and Map
-    Router::new().route("/manifest/:locale", get(resolve_handler))
+    Router::new().route("/manifest/{locale}", get(resolve_handler))
 }

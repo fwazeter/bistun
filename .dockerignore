@@ -1,9 +1,22 @@
+# Build Artifacts
 target/
+**/*.rs.bk
+rustc-ice-*.txt
+
+# Git & GitHub
 .git/
 .github/
 .githooks/
+
+# IDEs & Editor configs
 .idea/
 .vscode/
+
+# Documentation & AI Templates
 docs/
-**/*.rs.bk
-rustc-ice-*.txt
+ai/
+
+# Security (Never bake secrets into the container context!)
+.env
+*.pem
+*.key

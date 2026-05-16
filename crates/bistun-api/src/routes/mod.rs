@@ -11,7 +11,7 @@
 
 pub mod v1;
 
-use crate::handlers::health::health_handler;
+use crate::handlers::health::{health_handler, metrics_handler};
 use axum::{Router, routing::get};
 use bistun_lms::LinguisticManager;
 
@@ -21,7 +21,7 @@ use bistun_lms::LinguisticManager;
 ///
 /// # Logic Trace (Internal)
 /// 1. Define the root `Router`.
-/// 2. Bind the `/health` liveness probe to the global namespace.
+/// 2. Bind the `/health` liveness probe and `/metrics` prometheus exporter to the global namespace.
 /// 3. Nest the `v1` sub-router under the `/v1` prefix to ensure future version compatibility.
 /// 4. Inject the `LinguisticManager` into the router's state, enabling wait-free access for handlers.
 /// 5. Return the finalized application router.
@@ -52,6 +52,7 @@ pub fn app_router(manager: LinguisticManager) -> Router {
     // [STEP 1, 2 & 3]: Global Assembly and Nesting
     Router::new()
         .route("/health", get(health_handler))
+        .route("/metrics", get(metrics_handler))
         .nest("/v1", v1::router())
         // [STEP 4]: State Injection
         .with_state(manager)

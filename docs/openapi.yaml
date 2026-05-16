@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Bistun Linguistic Metadata Service (LMS)
+  version: 1.0.0
+  description: High-performance Rule-Centric Capability Engine for resolving BCP 47 locales into actionable formatting directives.
+servers:
+  - url: http://localhost:8080/v1
+    description: Bistun LMS Sidecar Instance
+paths:
+  /manifest/{locale}:
+    get:
+      summary: Resolve a Language Tag
+      description: Resolves a BCP 47 language tag into an algorithmic capability manifest.
+      parameters:
+        - in: path
+          name: locale
+          required: true
+          schema:
+            type: string
+            example: "ar-EG-u-nu-latn"
+          description: The BCP 47 language tag.
+      responses:
+        '200':
+          description: Successfully synthesized Capability Manifest.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityManifest'
+        '400':
+          description: Malformed or invalid BCP 47 language tag.
+        '503':
+          description: System is degraded (WORM WORM payload verification failed or background sync incomplete).
+components:
+  schemas:
+    CapabilityManifest:
+      type: object
+      properties:
+        resolved_locale:
+          type: string
+          example: "ar-EG"
+        traits:
+          type: object
+          additionalProperties: true
+          description: Static typological and orthographic classifications.
+        rules:
+          type: object
+          additionalProperties: true
+          description: Derived algorithmic execution instructions (e.g., NORMALIZATION_DEFAULT).
+        resources:
+          type: object
+          additionalProperties: true
+          description: Physical URLs to required zero-copy binary blobs.
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Resolution telemetry and WORM snapshot headers.

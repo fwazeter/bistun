@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! # Capability Resolution Handler
+//! Crate: `bistun-api`
 //! Ref: [001-LMS-CORE], [012-LMS-ENG]
 //! Location: `crates/bistun-api/src/handlers/capability.rs`
 //!
@@ -36,7 +37,7 @@ use tracing::{debug, instrument};
 
 /// Routes a BCP 47 request into the capability engine and yields the manifest.
 ///
-/// Time: O(N) where N is tag length | Space: O(1) beyond JSON serialization
+/// Time: $O(N)$ where N is tag length | Space: $O(1)$ beyond JSON serialization
 ///
 /// # Logic Trace (Internal)
 /// 1. Extract the `locale` string from the URL path via the Axum extractor.
@@ -60,13 +61,17 @@ use tracing::{debug, instrument};
 /// * **Input**: `GET /v1/manifest/ar-EG`
 /// * **Output**: `200 OK | {"resolved_locale": "ar-EG", "traits": {...}}`
 ///
-/// # Errors, Panics, & Safety
-/// * **Errors**: Returns `BAD_REQUEST` for invalid tags or `NOT_FOUND` if resolution exhausts the fallback chain.
-/// * **Panics**: None.
-/// * **Safety**: Safe asynchronous execution; the manager uses wait-free reads.
+/// # Errors
+/// * Returns [`AppError`] containing `BAD_REQUEST` for malformed language tags or `NOT_FOUND` if the resolution chain is fully exhausted.
+///
+/// # Panics
+/// * None.
+///
+/// # Safety
+/// * Fully safe asynchronous execution; the core manager leverages lock-free memory pools.
 ///
 /// # Side Effects
-/// * Records a tracing span to the system observability sink per **007-LMS-OPS**.
+/// * Records an asynchronous tracing span to the structural telemetry observability sink per **007-LMS-OPS**.
 #[instrument(level = "info", skip(manager), fields(tag = %locale))]
 pub async fn resolve_handler(
     State(manager): State<LinguisticManager>,

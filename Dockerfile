@@ -8,24 +8,28 @@ COPY . .
 # We disable default features to keep the binary lean
 RUN cargo build --release -p bistun-api --no-default-features --features "fs"
 
+# =========================================================================
+# MILESTONE E.2: Distroless Hardening & Non-Root Execution
+# =========================================================================
 # [Stage 2]: Production Runner
-FROM debian:bookworm-slim
-
-# Install minimal SSL certs for potential network hydration
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+# Utilizing Google's distroless base strips out all shells and package managers,
+# drastically reducing the attack surface and image size.
+FROM gcr.io/distroless/cc-debian12:nonroot
 
 WORKDIR /app
 
-# Copy the binary from the builder
-COPY --from=builder /usr/src/bistun/target/release/bistun-api /app/bistun-api
+# Copy the binary from the builder and assign explicit nonroot ownership
+COPY --from=builder --chown=nonroot:nonroot /usr/src/bistun/target/release/bistun-api /app/bistun-api
 
-# Setup the data directory for the WORM snapshots
-RUN mkdir -p /app/data
-COPY data/snapshot.json /app/data/snapshot.json
-COPY data/snapshot.sig /app/data/snapshot.sig
+# Inject the curated WORM snapshots with nonroot ownership
+COPY --chown=nonroot:nonroot data/snapshot.json /app/data/snapshot.json
+COPY --chown=nonroot:nonroot data/snapshot.sig /app/data/snapshot.sig
 
 # Expose the Hot-Path port
 EXPOSE 8080
 
-# The .env file should be mounted as a volume or injected via ENV variables
+# Enforce unprivileged user execution (Kubernetes Security Context Alignment)
+USER nonroot
+
+# The .env variables should be injected by the orchestrator (e.g., K8s ConfigMap)
 ENTRYPOINT ["/app/bistun-api"]
