@@ -72,6 +72,9 @@ use std::time::Instant;
 ///
 /// # Safety
 /// * Safe synchronous execution.
+///
+/// # Side Effects
+/// * Mutates the `manifest` in-place by injecting latency strings and taxonomic evaluation path data.
 pub fn record_metrics(
     manifest: &mut CapabilityManifest,
     start_time: Instant,

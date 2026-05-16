@@ -27,3 +27,4 @@
 
 pub mod capability;
 pub mod health;
+pub mod webhook;

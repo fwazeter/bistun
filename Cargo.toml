@@ -17,7 +17,7 @@ members = [
 # Centralizes standard metadata so child crates remain DRY.
 # ---------------------------------------------------------------------
 [workspace.package]
-version = "0.9.4"
+version = "0.9.5"
 authors = ["Francis Xavier Wazeter IV"]
 edition = "2024"
 rust-version = "1.95" # Enforced official release
@@ -31,8 +31,8 @@ homepage = "https://github.com/fwazeter/bistun"
 # ---------------------------------------------------------------------
 [workspace.dependencies]
 # Internal Workspace Members
-bistun-core = { path = "crates/bistun-core", version = "2.0.1" }
-bistun-lms = { path = "crates/bistun-lms", version = "2.1.0" }
+bistun-core = { path = "crates/bistun-core", version = "2.0.2" }
+bistun-lms = { path = "crates/bistun-lms", version = "2.1.1" }
 
 # Production Dependencies (Shared)
 serde = { version = "1.0.228", features = ["derive"] }

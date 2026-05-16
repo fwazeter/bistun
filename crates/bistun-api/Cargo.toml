@@ -21,7 +21,7 @@ network = ["bistun-lms/network"]
 dotenv = ["dep:dotenvy"]
 
 # Enables the Curator CLI tool (Pulls in heavy crypto generation math)
-curator = ["dep:rand", "dep:ed25519-dalek", "dep:base64", "dep:clap", "dep:sha2", "dep:chrono"]
+curator = ["dep:rand", "dep:ed25519-dalek", "dep:base64", "dep:clap", "dep:chrono", "dep:reqwest"]
 
 [dependencies]
 # System integration
@@ -47,8 +47,12 @@ rand = { version = "0.8.5", optional = true }
 base64 = { version = "0.22.1", optional = true }
 serde_json = "1.0.149"
 clap = { version = "4.6.1", features = ["derive"], optional = true }
-sha2 = { version = "0.11.0", optional = true }
 chrono = { version = "0.4.44", optional = true }
+reqwest = { version = "0.13.3", features = ["blocking"], optional = true }
+
+# Security & Webhook Validation
+sha2 = "0.11.0"
+hmac = "0.13.0"
 
 [dev-dependencies]
 tower = { version = "0.5.3", features = ["util"] }

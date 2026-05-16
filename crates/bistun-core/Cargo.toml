@@ -5,7 +5,7 @@
 
 [package]
 name = "bistun-core"
-version = "2.0.1"
+version = "2.0.2"
 description = "The authoritative Linguistic DNA models and DTOs for the Bistun LMS. Provides a high-performance, immutable contract layer for BCP 47 locale resolution, typographic traits, and linguistic metadata."
 repository = "https://github.com/fwazeter/bistun/tree/main/crates/bistun-core"
 keywords = ["i18n", "bcp47", "linguistics", "metadata", "dto"]

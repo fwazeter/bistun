@@ -70,6 +70,10 @@ use bistun_core::manifest::CapabilityManifest;
 ///
 /// # Safety
 /// * Safe synchronous execution.
+///
+/// # Side Effects
+/// * Mutates the `manifest` in-place by extending its internal collections with cloned profile data.
+#[allow(clippy::unnecessary_wraps)] // Maintained for future pipeline trait enforcement
 pub fn aggregate(
     manifest: &mut CapabilityManifest,
     profile: &LocaleProfile,

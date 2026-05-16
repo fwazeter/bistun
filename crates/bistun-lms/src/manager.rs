@@ -151,6 +151,72 @@ impl LinguisticManager {
         }
     }
 
+    /// Forces an immediate, real-time hydration of the capability engine's memory pool.
+    ///
+    /// Time: `O(M)` where M is the number of locales | Space: `O(M)` memory pool allocation
+    ///
+    /// # Logic Trace (Internal)
+    /// 1. Record the manual sync attempt timestamp in [`SyncMetrics`].
+    /// 2. Await the repository hydrator with the injected `provider` and `public_key_b64`.
+    /// 3. On success, perform a wait-free hot-swap of the registry state and log the telemetry.
+    /// 4. On failure, bubble up the stringified error for the HTTP handler to return as a 500 response.
+    ///
+    /// # Arguments
+    /// * `provider` (&impl [`ISnapshotProvider`]): The authoritative WORM data source.
+    /// * `public_key_b64` (&str): The `Base64` encoded public key for signature verification.
+    ///
+    /// # Returns
+    /// * `Result<(), String>`: Yields success or a descriptive error message on failure.
+    ///
+    /// # Errors
+    /// * Returns an `Err(String)` if the provider fails to fetch, parse, or cryptographically verify the snapshot.
+    ///
+    /// # Panics
+    /// * Panics if internal metrics locks are poisoned.
+    ///
+    /// # Safety
+    /// * Fully safe asynchronous execution utilizing `ArcSwap` for wait-free pointer rotation.
+    ///
+    /// # Side Effects
+    /// * Mutates the internal `RegistryState` pointer by hot-swapping the active memory pool.
+    /// * Mutates `SyncMetrics` to record success or failure counts.
+    pub async fn force_sync(
+        &self,
+        provider: &impl ISnapshotProvider,
+        public_key_b64: &str,
+    ) -> Result<(), String> {
+        // [STEP 1]: Record manual sync attempt
+        self.metrics.write().expect("LMS-OPS: Sync metrics lock poisoned").last_attempted_sync =
+            Self::now_secs();
+
+        // [STEP 2]: Execute immediate hydration bypass
+        match hydrate_snapshot(provider, public_key_b64).await {
+            Ok(store) => {
+                // [STEP 3]: Wait-free atomic swap
+                self.state.swap_registry(store);
+                let mut s = self.status.write().expect("LMS-OPS: Status lock poisoned");
+                if *s != SdkState::Ready {
+                    *s = SdkState::Ready;
+                }
+                self.metrics
+                    .write()
+                    .expect("LMS-OPS: Sync metrics lock poisoned")
+                    .last_successful_sync = Self::now_secs();
+                info!("LMS-OPS: Real-time force_sync successful. Registry hot-swapped.");
+                Ok(())
+            }
+            Err(e) => {
+                // [STEP 4]: Yield degradation
+                self.metrics
+                    .write()
+                    .expect("LMS-OPS: Sync metrics lock poisoned")
+                    .sync_error_count += 1;
+                error!("LMS-OPS: Real-time force_sync failed: {}", e);
+                Err(e.to_string())
+            }
+        }
+    }
+
     /// Spawns a ``Tokio`` background worker that periodically polls for registry updates.
     ///
     /// # Logic Trace (Internal)

@@ -25,7 +25,16 @@ use clap::{Parser, Subcommand};
 use ed25519_dalek::{Signature, Signer, SigningKey};
 use rand::rngs::OsRng;
 use serde_json::Value;
+
+// =========================================================================
+// CRITICAL: Global Cryptography Traits
+// We explicitly import KeyInit and Mac from the digest re-export to
+// guarantee the compiler resolves the associated methods.
+// =========================================================================
+use hmac::Hmac;
+use hmac::digest::{KeyInit, Mac};
 use sha2::{Digest, Sha256};
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -54,6 +63,12 @@ enum Commands {
         /// Optional path to write the detached signature (Defaults to data/snapshot.sig).
         #[arg(short = 'o', long, default_value = "data/snapshot.sig")]
         sig_out: PathBuf,
+        /// Optional URL to send a POST webhook to after a successful signature.
+        #[arg(short = 'n', long)]
+        notify: Option<String>,
+        /// Optional HMAC secret for the webhook payload. Required if --notify is used.
+        #[arg(short = 'w', long)]
+        webhook_secret: Option<String>,
     },
     /// Verifies a signed snapshot locally to ensure production readiness.
     Verify {
@@ -69,18 +84,6 @@ enum Commands {
     },
 }
 
-/// Executes the core logic flow for the CLI tool.
-///
-/// Time: $O(N)$ based on payload size | Space: $O(N)$ file buffer
-///
-/// # Logic Trace (Internal)
-/// 1. \[Ingestion\]: Parse the command-line arguments using `clap`.
-/// 2. \[Keygen Branch\]: If `keygen`, generate and print fresh Ed25519 credentials.
-/// 3. \[Sign Branch\]: If `sign`, load JSON, inject `version`/`build_date`/`checksum`, canonicalize it, generate an Ed25519 signature, and persist to disk.
-/// 4. \[Verify Branch\]: If `verify`, load assets and utilize the LMS SDK `verify_snapshot` logic to prove structural integrity.
-///
-/// # Errors, Panics, & Safety
-/// * **Panics**: Standard CLI "Fail-Fast" behavior using `.expect()` to abort upon critical I/O faults.
 fn main() {
     let cli = Cli::parse();
 
@@ -108,7 +111,7 @@ fn main() {
         // =====================================================================
         // COMMAND: SIGN
         // =====================================================================
-        Commands::Sign { payload, key, sig_out } => {
+        Commands::Sign { payload, key, sig_out, notify, webhook_secret } => {
             println!("📝 Reading WORM snapshot from {:?}...", payload);
 
             // [STEP 1]: File I/O
@@ -119,8 +122,6 @@ fn main() {
 
             // [STEP 2]: Canonicalize & Inject Pre-Crypto Headers
             if let Some(obj) = parsed.as_object_mut() {
-                // Extract and hash the profiles FIRST (Immutable Borrow)
-                // This prevents conflicts with the mutable metadata entry below.
                 let mut hasher = Sha256::new();
                 if let Some(profiles) = obj.get("profiles") {
                     hasher.update(profiles.to_string().as_bytes());
@@ -128,22 +129,18 @@ fn main() {
                 let hash_result = hasher.finalize();
                 let hash_hex = hash_result.iter().map(|b| format!("{:02x}", b)).collect::<String>();
 
-                // NOW mutate the metadata map (Mutable Borrow)
                 let metadata =
                     obj.entry("metadata").or_insert_with(|| Value::Object(serde_json::Map::new()));
 
                 if let Some(meta_obj) = metadata.as_object_mut() {
-                    // Inject Schema Version & Timestamp
                     meta_obj.insert("version".to_string(), Value::String("2.0.0".to_string()));
                     meta_obj
                         .insert("build_date".to_string(), Value::String(Utc::now().to_rfc3339()));
-
-                    // Inject the pre-calculated hash
                     meta_obj.insert("checksum".to_string(), Value::String(hash_hex));
                 }
             }
 
-            // [STEP 3]: Minify JSON (Zero Whitespace) to guarantee stable crypto-bytes
+            // [STEP 3]: Minify JSON (Zero Whitespace)
             let minified_payload = serde_json::to_string(&parsed)
                 .expect("LMS-OPS: Failed to canonicalize JSON structure");
 
@@ -158,13 +155,53 @@ fn main() {
             let sig_b64 = BASE64.encode(signature.to_bytes());
 
             // [STEP 6]: Persist to Disk
-            fs::write(&payload, minified_payload)
+            fs::write(&payload, &minified_payload)
                 .expect("LMS-OPS: Failed to overwrite payload with canonicalized JSON");
             fs::write(&sig_out, sig_b64).expect("LMS-OPS: Failed to write signature to disk");
 
             println!("✅ SUCCESS: Snapshot formatted, hashed, and signed.");
             println!("💾 Minified Payload: {:?}", payload);
             println!("💾 Detached Signature: {:?}", sig_out);
+
+            // [STEP 7]: Transmit Real-Time Webhook Notification (Push Model)
+            if let Some(url) = notify {
+                println!("🌐 Transmitting real-time webhook notification to {}...", url);
+                let secret = webhook_secret
+                    .expect("LMS-OPS: --webhook-secret is required when --notify is used.");
+
+                type HmacSha256 = Hmac<Sha256>;
+
+                // Fully qualified trait execution. This eliminates E0425/E0599 permanently.
+                let mut mac = <HmacSha256 as KeyInit>::new_from_slice(secret.as_bytes())
+                    .expect("LMS-OPS: HMAC can take key of any size");
+
+                mac.update(minified_payload.as_bytes());
+
+                let hmac_result = mac.finalize().into_bytes();
+                let hmac_hex: String = hmac_result.iter().map(|b| format!("{:02x}", b)).collect();
+
+                let client = reqwest::blocking::Client::new();
+                match client
+                    .post(&url)
+                    .header("X-LMS-Signature", hmac_hex)
+                    .header("Content-Type", "application/json")
+                    .body(minified_payload)
+                    .send()
+                {
+                    Ok(res) if res.status().is_success() => {
+                        println!("✅ SUCCESS: Webhook acknowledged. Sidecar cache hot-swapped!");
+                    }
+                    Ok(res) => {
+                        println!(
+                            "⚠️ WARNING: Webhook delivered but sidecar returned status: {}",
+                            res.status()
+                        );
+                    }
+                    Err(e) => {
+                        println!("❌ ERROR: Failed to deliver webhook: {}", e);
+                    }
+                }
+            }
         }
 
         // =====================================================================
@@ -178,7 +215,6 @@ fn main() {
             let raw_signature =
                 fs::read_to_string(&signature).expect("LMS-OPS: Snapshot signature missing");
 
-            // Execute the production SDK verification gate
             match verify_snapshot(&raw_payload, &raw_signature, &key) {
                 Ok(_) => {
                     println!("✅ INTEGRITY VERIFIED: Payload matches the Public Key authority.")

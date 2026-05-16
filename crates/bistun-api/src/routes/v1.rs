@@ -24,8 +24,11 @@
 //! ### Glossary
 //! * **Route**: A URL pattern mapped to a specific executable handler.
 
-use crate::handlers::capability::resolve_handler;
-use axum::{Router, routing::get};
+use crate::handlers::{capability::resolve_handler, webhook::refresh_handler};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use bistun_lms::LinguisticManager;
 
 /// Constructs the scoped v1 capability router.
@@ -34,12 +37,12 @@ use bistun_lms::LinguisticManager;
 ///
 /// # Logic Trace (Internal)
 /// 1. Initialize a new Axum `Router` instance.
-/// 2. Register the `GET` method for the `/manifest/:locale` path.
-/// 3. Map the path to the `resolve_handler` for 5-phase pipeline execution.
+/// 2. Register the `GET` method for the `/manifest/{locale}` path to the resolution pipeline.
+/// 3. Register the `POST` method for the `/webhooks/refresh` path to the Push Model orchestrator.
 /// 4. Return the configured router to the master orchestrator.
 ///
 /// # Examples
-/// ```rust
+/// ```rust,ignore
 /// // Internal assembly within mod.rs
 ///    use crate::bistun_api::routes::v1;
 ///
@@ -52,15 +55,13 @@ use bistun_lms::LinguisticManager;
 /// # Returns
 /// * `Router<LinguisticManager>`: A router specialized for the `LinguisticManager` state, containing v1 endpoints.
 ///
-/// # Golden I/O
-/// * **Input**: `()`
-/// * **Output**: `Router` (v1 endpoints registered)
-///
 /// # Errors, Panics, & Safety
 /// * **Errors**: Infallible static registration.
 /// * **Panics**: None.
 /// * **Safety**: Safe synchronous execution.
 pub fn router() -> Router<LinguisticManager> {
-    // [STEP 1, 2 & 3]: Initialize and Map
-    Router::new().route("/manifest/{locale}", get(resolve_handler))
+    // [STEP 1, 2, 3 & 4]: Initialize and Map
+    Router::new()
+        .route("/manifest/{locale}", get(resolve_handler))
+        .route("/webhooks/refresh", post(refresh_handler))
 }

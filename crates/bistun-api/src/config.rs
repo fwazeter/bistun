@@ -39,6 +39,8 @@ pub struct AppConfig {
     pub database_url: Option<String>,
     /// The Ed25519 Public Key used to verify the integrity of the WORM payload. Option to prevent panics.
     pub curator_public_key: Option<String>,
+    /// The shared HMAC-SHA256 secret used to authenticate real-time webhook push events.
+    pub webhook_secret: Option<String>,
 }
 
 impl AppConfig {
@@ -85,6 +87,7 @@ impl AppConfig {
             lms_registry_url: env::var("LMS_REGISTRY_URL").ok(),
             database_url: env::var("DATABASE_URL").ok(),
             curator_public_key: env::var("CURATOR_PUBLIC_KEY").ok(), // Safe Fallback
+            webhook_secret: env::var("WEBHOOK_SECRET").ok(),
         }
     }
 }

@@ -41,7 +41,7 @@ use hashbrown::HashMap;
 ///
 /// # Logic Trace (Internal)
 /// 1. Provides a static `JSON` string representing a complete `WORM` payload.
-/// 2. Utilizes a nested `V2.0.0` architecture (traits, rules, resources) to align with scalability.
+/// 2. Utilizes a nested `v2.0.0-simulated` architecture (traits, rules, resources) to align with scalability.
 pub const SIMULATED_WORM_JSON: &str = r#"{
   "metadata": {
     "version": "v2.0.0-simulated",
@@ -218,6 +218,7 @@ pub const SIMULATED_WORM_JSON: &str = r#"{
         "HAS_BIDI_ELEMENTS": false,
         "REQUIRES_SHAPING": false,
         "PLURAL_CATEGORIES": ["other"],
+        "UNICODE_PRELOAD_BLOCKS": ["Hiragana", "Katakana", "CJK Unified Ideographs"],
         "DEFAULT_NUMBERING_SYSTEM": "jpan",
         "DEFAULT_CALENDAR": "japanese"
       },
@@ -237,7 +238,8 @@ pub const SIMULATED_WORM_JSON: &str = r#"{
         "PRIMARY_DIRECTION": "LTR",
         "HAS_BIDI_ELEMENTS": false,
         "REQUIRES_SHAPING": false,
-        "PLURAL_CATEGORIES": ["one", "other"]
+        "PLURAL_CATEGORIES": ["one", "other"],
+        "UNICODE_PRELOAD_BLOCKS": ["Basic Latin", "Latin Extended Additional"]
       },
       "rules": {
         "NORMALIZATION_DEFAULT": "NFC",
@@ -254,7 +256,8 @@ pub const SIMULATED_WORM_JSON: &str = r#"{
         "HAS_BIDI_ELEMENTS": false,
         "REQUIRES_SHAPING": true,
         "PLURAL_CATEGORIES": ["one", "two", "other"],
-        "DEFAULT_NUMBERING_SYSTEM": "deva"
+        "DEFAULT_NUMBERING_SYSTEM": "deva",
+        "UNICODE_PRELOAD_BLOCKS": ["Devanagari"]
       },
       "rules": {
         "NORMALIZATION_DEFAULT": "NFC",
@@ -477,6 +480,6 @@ pub fn th_th_manifest() -> CapabilityManifest {
 
     manifest.resources.insert("icu_thai".to_string(), "required".to_string());
 
-    manifest.metadata.insert("registry_version".into(), "SIMULATED".into());
+    manifest.metadata.insert("registry_version".into(), "v2.0.0-simulated".into());
     manifest
 }
