@@ -29,11 +29,11 @@ use crate::error::AppError;
 use axum::{
     Json,
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
 use bistun_lms::LinguisticManager;
-use tracing::{debug, instrument};
+use tracing::{Instrument, debug};
 
 /// Routes a BCP 47 request into the capability engine and yields the manifest.
 ///
@@ -52,6 +52,7 @@ use tracing::{debug, instrument};
 ///
 /// # Arguments
 /// * `manager` ([`State<LinguisticManager>`]): The thread-safe capability engine injected via Axum application state.
+/// * `headers` ([`HeaderMap`]): The inbound HTTP header map containing distributed tracking metadata.
 /// * `locale` ([`Path<String>`]): The raw BCP 47 language tag requested by the client, extracted from the URL.
 ///
 /// # Returns
@@ -72,16 +73,28 @@ use tracing::{debug, instrument};
 ///
 /// # Side Effects
 /// * Records an asynchronous tracing span to the structural telemetry observability sink per **007-LMS-OPS**.
-#[instrument(level = "info", skip(manager), fields(tag = %locale))]
+#[tracing::instrument(level = "info", skip(manager, headers), fields(tag = %locale))]
 pub async fn resolve_handler(
     State(manager): State<LinguisticManager>,
+    headers: HeaderMap,
     Path(locale): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    debug!("Ingressing resolution request for tag: {}", locale);
+    // Extract distributed trace tokens if injected by parent API Gateways
+    let trace_parent =
+        headers.get("traceparent").and_then(|v| v.to_str().ok()).unwrap_or("00-detached-span-00");
 
-    // [STEP 1 & 2]: Request resolution from the engine orchestrator
-    let manifest = manager.resolve_capabilities(&locale)?;
+    // Enforce span context binding across microservice boundaries using fully qualified macros
+    let span = tracing::info_span!("5_phase_resolution_pipeline", edge_trace = %trace_parent);
 
-    // [STEP 3]: Yield success response
-    Ok((StatusCode::OK, Json(manifest)))
+    async move {
+        debug!("Processing resolution request for tag: {}", locale);
+
+        // [STEP 1 & 2]: Request resolution from the engine orchestrator
+        let manifest = manager.resolve_capabilities(&locale)?;
+
+        // [STEP 3]: Yield success response
+        Ok((StatusCode::OK, Json(manifest)))
+    }
+    .instrument(span)
+    .await
 }

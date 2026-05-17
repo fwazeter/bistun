@@ -2,7 +2,7 @@
 
 [![Domain: Orchestration](https://img.shields.io/badge/Domain-Orchestration-green.svg)](#)
 [![Status: Production](https://img.shields.io/badge/Status-Production-green.svg)](#)
-[![Version: 2.1.1](https://img.shields.io/badge/Version-2.1.1-blue.svg)](#)
+[![Version: 2.1.2](https://img.shields.io/badge/Version-2.1.2-blue.svg)](#)
 
 ---
 

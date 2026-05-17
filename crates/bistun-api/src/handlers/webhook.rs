@@ -85,6 +85,12 @@ pub async fn refresh_handler(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<impl IntoResponse, StatusCode> {
+    // Prevent OOM Denial of Service attacks by clamping payload buffer reading to 2MB max
+    if body.len() > 2 * 1024 * 1024 {
+        warn!("LMS-OPS: Webhook payload discarded. Size exceeds 2MB threshold block.");
+        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    }
+
     let config = AppConfig::load();
 
     // [STEP 1]: Validate Secret Configuration

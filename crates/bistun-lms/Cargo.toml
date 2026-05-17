@@ -5,7 +5,7 @@
 
 [package]
 name = "bistun-lms"
-version = "2.1.1"
+version = "2.1.2"
 description = "A thread-safe capability engine for resolving BCP 47 language tags into actionable rendering and parsing properties (directionality, morphology, segmentation). Features a wait-free, lock-free memory pool (ArcSwap) enabling zero-downtime registry hot-swaps for high-throughput NLP and UI pipelines."
 repository = "https://github.com/fwazeter/bistun/tree/main/crates/bistun-lms"
 keywords = ["i18n", "bcp47", "localization", "linguistics", "capability-engine"]

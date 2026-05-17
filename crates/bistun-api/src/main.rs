@@ -137,10 +137,44 @@ async fn main() {
     // [STEP 6]: Assemble Router
     let app = routes::app_router(manager);
 
-    // [STEP 7]: Commence Serving
+    // [STEP 7]: Commence Serving with Signal Interception
     let addr = "0.0.0.0:8080";
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
     info!("🎧 Service listening on {}", addr);
-    axum::serve(listener, app).await.unwrap();
+
+    // Bind the server execution to block with a graceful shutdown listener
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .expect("LMS-OPS: Axum server execution loop failed");
+}
+
+/// Asynchronously listens for termination primitives from the host OS kernel.
+///
+/// Time: O(1) | Space: O(1)
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c().await.expect("LMS-OPS: Failed to install Ctrl+C signal handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("LMS-OPS: Failed to install SIGTERM signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("🛑 Received SIGINT (Ctrl+C). Initiating graceful draining phase...");
+        },
+        _ = terminate => {
+            info!("🛑 Received SIGTERM termination signal. Draining server tasks...");
+        },
+    }
 }
